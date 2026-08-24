@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TransactionStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+enum CheckoutSessionStatus {
+  OPEN
+  ABANDONED
+  CONVERTED
+  EXPIRED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  PAUSED
+}
+
+enum ScenarioType {
+  FAILED_PAYMENT
+  CHECKOUT_ABANDONMENT
+  SUBSCRIPTION_FAILURE
+}
+
+enum CaseStatus {
+  DETECTED
+  DIAGNOSED
+  IN_PROGRESS
+  RECOVERED
+  FAILED
+  ESCALATED
+  STOPPED
+}
+
+enum CasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum InterventionAction {
+  RETRY_PAYMENT
+  SCHEDULE_RETRY
+  SEND_REMINDER
+  OFFER_ASSISTANCE
+  ESCALATE_TO_MERCHANT
+  STOP_RECOVERY
+}
+
+enum InterventionStatus {
+  PENDING
+  SCHEDULED
+  COMPLETED
+  SKIPPED
+  AWAITING_APPROVAL
+}
+
+enum InterventionResult {
+  SUCCESS
+  FAILURE
+  NO_RESPONSE
+  APPROVAL_PENDING
+  BLOCKED_BY_POLICY
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AuditActor {
+  AI
+  POLICY_ENGINE
+  SYSTEM
+  MERCHANT
+}
+
+model Merchant {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customers        Customer[]
+  transactions     Transaction[]
+  subscriptions    Subscription[]
+  checkoutSessions CheckoutSession[]
+  recoveryCases    RecoveryCase[]
+  policy           RecoveryPolicy?
+}
+
+model Customer {
+  id         String   @id @default(cuid())
+  merchantId String
+  name       String
+  email      String
+  phone      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  merchant         Merchant          @relation(fields: [merchantId], references: [id])
+  transactions     Transaction[]
+  subscriptions    Subscription[]
+  checkoutSessions CheckoutSession[]
+  recoveryCases    RecoveryCase[]
+
+  @@unique([merchantId, email])
+  @@index([merchantId])
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  merchantId        String
+  customerId        String
+  amount            Int
+  currency          String            @default("INR")
+  status            TransactionStatus
+  failureReason     String?
+  razorpayPaymentId String?           @unique
+  recoveryCaseId    String?           @unique
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  merchant     Merchant      @relation(fields: [merchantId], references: [id])
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  recoveryCase RecoveryCase? @relation(fields: [recoveryCaseId], references: [id])
+
+  @@index([merchantId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  merchantId     String
+  customerId     String
+  planName       String
+  amount         Int
+  currency       String             @default("INR")
+  status         SubscriptionStatus
+  failureReason  String?
+  retryCount     Int                @default(0)
+  nextRetryAt    DateTime?
+  recoveryCaseId String?            @unique
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  merchant     Merchant      @relation(fields: [merchantId], references: [id])
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  recoveryCase RecoveryCase? @relation(fields: [recoveryCaseId], references: [id])
+
+  @@index([merchantId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model CheckoutSession {
+  id             String               @id @default(cuid())
+  merchantId     String
+  customerId     String
+  cartSummary    String
+  amount         Int
+  currency       String               @default("INR")
+  status         CheckoutSessionStatus
+  abandonedAt    DateTime?
+  recoveryCaseId String?              @unique
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  merchant     Merchant      @relation(fields: [merchantId], references: [id])
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  recoveryCase RecoveryCase? @relation(fields: [recoveryCaseId], references: [id])
+
+  @@index([merchantId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model RecoveryCase {
+  id                 String            @id @default(cuid())
+  merchantId         String
+  customerId         String
+  scenario           ScenarioType
+  status             CaseStatus        @default(DETECTED)
+  priority           CasePriority      @default(MEDIUM)
+  amountAtRisk       Int
+  retryCount         Int               @default(0)
+  contactCount       Int               @default(0)
+  windowExpiresAt    DateTime
+  transactionId      String?           @unique
+  checkoutSessionId  String?           @unique
+  subscriptionId     String?           @unique
+  createdAt          DateTime          @default(now())
+  resolvedAt         DateTime?
+
+  merchant         Merchant      @relation(fields: [merchantId], references: [id])
+  customer         Customer      @relation(fields: [customerId], references: [id])
+  transaction      Transaction?  @relation
+  checkoutSession  CheckoutSession? @relation
+  subscription     Subscription?    @relation
+  interventions    RecoveryIntervention[]
+  aiDecisions      AIDecision[]
+  auditLogs        AuditLog[]
+
+  @@index([merchantId, status])
+  @@index([customerId])
+  @@index([scenario, status])
+  @@index([createdAt])
+}
+
+model RecoveryIntervention {
+  id              String              @id @default(cuid())
+  recoveryCaseId  String
+  action          InterventionAction
+  status          InterventionStatus  @default(PENDING)
+  result          InterventionResult?
+  scheduledAt     DateTime?
+  executedAt      DateTime?
+  recoveredAmount Int                 @default(0)
+  notes           String?
+  createdAt       DateTime            @default(now())
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+
+  @@index([recoveryCaseId])
+  @@index([status])
+  @@index([executedAt])
+}
+
+model RecoveryPolicy {
+  id                  String   @id @default(cuid())
+  merchantId          String   @unique
+  maxRetries          Int      @default(3)
+  maxContactAttempts  Int      @default(2)
+  recoveryWindowHours Int      @default(72)
+  approvalThreshold   Int      @default(2500000)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+}
+
+model AIDecision {
+  id                String    @id @default(cuid())
+  recoveryCaseId    String
+  diagnosis         String
+  riskLevel         RiskLevel
+  recommendedAction InterventionAction
+  confidence        Float
+  reasoning         String
+  model             String    @default("rule-based-fallback")
+  latencyMs         Int       @default(0)
+  createdAt         DateTime  @default(now())
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+
+  @@index([recoveryCaseId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id             String     @id @default(cuid())
+  recoveryCaseId String
+  event          String
+  actor          AuditActor
+  metadata       Json?
+  createdAt      DateTime   @default(now())
+
+  recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
+
+  @@index([recoveryCaseId, createdAt])
+}
