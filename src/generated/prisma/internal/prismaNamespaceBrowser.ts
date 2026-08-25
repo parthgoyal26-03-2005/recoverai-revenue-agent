@@ -166,6 +166,8 @@ export const RecoveryCaseScalarFieldEnum = {
   amountAtRisk: 'amountAtRisk',
   retryCount: 'retryCount',
   contactCount: 'contactCount',
+  merchantApproved: 'merchantApproved',
+  merchantApprovedAt: 'merchantApprovedAt',
   windowExpiresAt: 'windowExpiresAt',
   transactionId: 'transactionId',
   checkoutSessionId: 'checkoutSessionId',

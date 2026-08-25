@@ -203,6 +203,8 @@ model RecoveryCase {
   amountAtRisk       Int
   retryCount         Int               @default(0)
   contactCount       Int               @default(0)
+  merchantApproved   Boolean           @default(false)
+  merchantApprovedAt DateTime?
   windowExpiresAt    DateTime
   transactionId      String?           @unique
   checkoutSessionId  String?           @unique
@@ -250,7 +252,7 @@ model RecoveryPolicy {
   maxRetries          Int      @default(3)
   maxContactAttempts  Int      @default(2)
   recoveryWindowHours Int      @default(72)
-  approvalThreshold   Int      @default(2500000)
+  approvalThreshold   Int      @default(500000)
   isActive            Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

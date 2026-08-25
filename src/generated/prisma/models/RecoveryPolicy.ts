@@ -494,10 +494,6 @@ export type RecoveryPolicyUncheckedUpdateOneWithoutMerchantNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.RecoveryPolicyUpdateToOneWithWhereWithoutMerchantInput, Prisma.RecoveryPolicyUpdateWithoutMerchantInput>, Prisma.RecoveryPolicyUncheckedUpdateWithoutMerchantInput>
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type RecoveryPolicyCreateWithoutMerchantInput = {
   id?: string
   maxRetries?: number

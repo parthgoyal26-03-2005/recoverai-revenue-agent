@@ -1292,6 +1292,8 @@ export const RecoveryCaseScalarFieldEnum = {
   amountAtRisk: 'amountAtRisk',
   retryCount: 'retryCount',
   contactCount: 'contactCount',
+  merchantApproved: 'merchantApproved',
+  merchantApprovedAt: 'merchantApprovedAt',
   windowExpiresAt: 'windowExpiresAt',
   transactionId: 'transactionId',
   checkoutSessionId: 'checkoutSessionId',
@@ -1536,6 +1538,13 @@ export type ListEnumCasePriorityFieldRefInput<$PrismaModel> = FieldRefInputType<
 
 
 /**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
  * Reference to a field of type 'InterventionAction'
  */
 export type EnumInterventionActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InterventionAction'>
@@ -1574,13 +1583,6 @@ export type EnumInterventionResultFieldRefInput<$PrismaModel> = FieldRefInputTyp
  * Reference to a field of type 'InterventionResult[]'
  */
 export type ListEnumInterventionResultFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InterventionResult[]'>
-    
-
-
-/**
- * Reference to a field of type 'Boolean'
- */
-export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 

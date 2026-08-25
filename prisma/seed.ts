@@ -85,7 +85,7 @@ async function main() {
       maxRetries: 3,
       maxContactAttempts: 2,
       recoveryWindowHours: 72,
-      approvalThreshold: rupees(25000),
+      approvalThreshold: rupees(5000),
     },
   });
 
