@@ -54,6 +54,7 @@ export type DueIntervention = RecoveryIntervention & {
 
 export interface RecoveryStore {
   getCase(id: string): Promise<CaseWithRelations | null>;
+  findActiveCases(limit?: number): Promise<CaseWithRelations[]>;
   createIntervention(data: NewInterventionData): Promise<{ id: string }>;
   updateCase(id: string, data: CaseUpdateData): Promise<void>;
   createAuditLog(data: AuditLogData): Promise<void>;
@@ -87,6 +88,30 @@ export function createPrismaStore(prisma: PrismaClient): RecoveryStore {
           },
         },
       }) as Promise<CaseWithRelations | null>;
+    },
+    findActiveCases(limit = 100) {
+      return prisma.recoveryCase.findMany({
+        where: { status: { in: ["DETECTED", "DIAGNOSED", "IN_PROGRESS"] } },
+        include: {
+          customer: { select: { id: true, name: true, email: true } },
+          merchant: {
+            select: {
+              id: true,
+              name: true,
+              policy: {
+                select: {
+                  maxRetries: true,
+                  maxContactAttempts: true,
+                  recoveryWindowHours: true,
+                  approvalThreshold: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+        take: limit,
+      }) as Promise<CaseWithRelations[]>;
     },
     createIntervention(data) {
       return prisma.recoveryIntervention.create({

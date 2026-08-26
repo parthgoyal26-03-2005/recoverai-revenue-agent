@@ -60,6 +60,10 @@ class InMemoryStore implements RecoveryStore {
   async getCase(id: string) {
     return this.cases.get(id) ?? null;
   }
+  async findActiveCases(): Promise<CaseWithRelations[]> {
+    const active = ["DETECTED", "DIAGNOSED", "IN_PROGRESS"];
+    return [...this.cases.values()].filter((c) => active.includes(c.status));
+  }
   async createIntervention(data: NewInterventionData) {
     const id = `iv_${++this.seq}`;
     this.interventions.push({ ...data, id });

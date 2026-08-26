@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { StatusBadge } from "@/components/status-badge";
 import { CaseActions } from "@/components/case-actions";
+import { AnalyzeCaseButton } from "@/components/analyze-case-button";
 import { formatINR, timeAgo } from "@/lib/domain/format";
 import { evaluatePolicy } from "@/lib/policy/engine";
 import { policyConfigFromCase } from "@/lib/recovery/orchestrator";
@@ -11,18 +12,47 @@ import type { CaseWithRelations } from "@/lib/recovery/store";
 export const dynamic = "force-dynamic";
 
 const SCENARIO_LABELS: Record<string, string> = {
-  FAILED_PAYMENT: "Failed Payment",
-  CHECKOUT_ABANDONMENT: "Checkout Abandonment",
-  SUBSCRIPTION_FAILURE: "Subscription Failure",
+  FAILED_PAYMENT: "Payment failed",
+  CHECKOUT_ABANDONMENT: "Checkout abandoned",
+  SUBSCRIPTION_FAILURE: "Subscription payment failed",
 };
 
-const RESULT_STYLES: Record<string, string> = {
-  SUCCESS: "text-emerald-700 font-medium",
-  FAILURE: "text-rose-700 font-medium",
-  NO_RESPONSE: "text-slate-500",
-  APPROVAL_PENDING: "text-amber-700 font-medium",
-  BLOCKED_BY_POLICY: "text-slate-500",
-};
+function humanize(value: string) {
+  return value
+    .split(/[_\s]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function windowStatusLabel(expiresAt: Date): string {
+  const nowMs = Date.now();
+  if (nowMs > expiresAt.getTime()) {
+    return `expired (${Math.abs(Math.floor((nowMs - expiresAt.getTime()) / 3_600_000))}h ago)`;
+  }
+  return `expires ${timeAgo(expiresAt).replace(" ago", "")}`;
+}
+
+function scheduledDueMinutes(interventions: { scheduledAt: Date | null }[]): number {
+  const nowMs = Date.now();
+  let min = -1;
+  for (const iv of interventions) {
+    if (!iv.scheduledAt) continue;
+    const mins = Math.max(0, Math.round((iv.scheduledAt.getTime() - nowMs) / 60_000));
+    min = min === -1 ? mins : Math.min(min, mins);
+  }
+  return min;
+}
+
+function SectionHeading({ step, title }: { step: number; title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+        {step}
+      </span>
+      <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+    </div>
+  );
+}
 
 export default async function CaseDetailPage({
   params,
@@ -52,16 +82,66 @@ export default async function CaseDetailPage({
   });
 
   if (!baseCase) notFound();
-
   const recoveryCase = baseCase as CaseWithRelations;
-  const [interventions, auditLogs] = await Promise.all([
-    prisma.recoveryIntervention.findMany({
-      where: { recoveryCaseId: id },
-      orderBy: { createdAt: "asc" },
+
+  const [interventions, auditLogs, latestDecision, capturedAgg, failedCount] =
+    await Promise.all([
+      prisma.recoveryIntervention.findMany({
+        where: { recoveryCaseId: id },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.auditLog.findMany({
+        where: { recoveryCaseId: id },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.aIDecision.findFirst({
+        where: { recoveryCaseId: id },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.transaction.aggregate({
+        where: { customerId: recoveryCase.customerId, status: "CAPTURED" },
+        _count: { _all: true },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.count({
+        where: { customerId: recoveryCase.customerId, status: "FAILED" },
+      }),
+    ]);
+
+  const [sourceEvent, activeSubs, pastDueSubs] = await Promise.all([
+    (async (): Promise<{
+      failureReason?: string;
+      cartSummary?: string;
+      planName?: string;
+    }> => {
+      if (recoveryCase.transactionId) {
+        const r = await prisma.transaction.findUnique({
+          where: { id: recoveryCase.transactionId },
+          select: { failureReason: true },
+        });
+        return { failureReason: r?.failureReason ?? undefined };
+      }
+      if (recoveryCase.checkoutSessionId) {
+        const r = await prisma.checkoutSession.findUnique({
+          where: { id: recoveryCase.checkoutSessionId },
+          select: { cartSummary: true },
+        });
+        return { cartSummary: r?.cartSummary ?? undefined };
+      }
+      if (recoveryCase.subscriptionId) {
+        const r = await prisma.subscription.findUnique({
+          where: { id: recoveryCase.subscriptionId },
+          select: { planName: true },
+        });
+        return { planName: r?.planName ?? undefined };
+      }
+      return {};
+    })(),
+    prisma.subscription.count({
+      where: { customerId: recoveryCase.customerId, status: "ACTIVE" },
     }),
-    prisma.auditLog.findMany({
-      where: { recoveryCaseId: id },
-      orderBy: { createdAt: "asc" },
+    prisma.subscription.count({
+      where: { customerId: recoveryCase.customerId, status: "PAST_DUE" },
     }),
   ]);
 
@@ -79,9 +159,7 @@ export default async function CaseDetailPage({
   );
 
   const allowedActions = evaluation.allowedActions.filter(
-    (a) =>
-      a !== "STOP_RECOVERY" ||
-      evaluation.allowedActions.length === 1
+    (a) => a !== "STOP_RECOVERY" || evaluation.allowedActions.length === 1
   );
   const blocked = evaluation.permissions
     .filter(
@@ -96,6 +174,12 @@ export default async function CaseDetailPage({
     (sum, iv) => sum + iv.recoveredAmount,
     0
   );
+
+  const lastExecuted = [...interventions]
+    .reverse()
+    .find((iv) => iv.executedAt != null);
+
+  const dueMinutes = scheduledDueMinutes(interventions);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -115,74 +199,132 @@ export default async function CaseDetailPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-slate-500">Amount at Risk</p>
-          <p className="mt-1 text-lg font-semibold text-rose-700">
-            {formatINR(recoveryCase.amountAtRisk)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-slate-500">Recovered</p>
-          <p className="mt-1 text-lg font-semibold text-emerald-700">
-            {formatINR(totalRecovered)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-slate-500">Retries / Contacts</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">
-            {recoveryCase.retryCount}/{config.maxRetries} ·{" "}
-            {recoveryCase.contactCount}/{config.maxContactAttempts}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-slate-500">Window Expires</p>
-          <p
-            className={`mt-1 text-lg font-semibold ${
-              evaluation.windowExpired ? "text-rose-700" : "text-slate-900"
-            }`}
-          >
-            {evaluation.windowExpired
-              ? "Expired"
-              : timeAgo(recoveryCase.windowExpiresAt).replace(" ago", " left")}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <section className="space-y-6 lg:col-span-2">
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">Case Information</h2>
-            <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-              <div className="flex justify-between sm:block">
-                <dt className="text-xs text-slate-400">Scenario</dt>
-                <dd>{SCENARIO_LABELS[recoveryCase.scenario]}</dd>
-              </div>
-              <div className="flex justify-between sm:block">
+            <SectionHeading step={1} title="Problem" />
+            <div className="mt-3 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+              <p className="text-base font-medium text-slate-800">
+                {SCENARIO_LABELS[recoveryCase.scenario]}
+              </p>
+              <p className="text-2xl font-bold text-rose-700">
+                {formatINR(recoveryCase.amountAtRisk)}
+                <span className="ml-2 text-xs font-normal text-slate-400">at risk</span>
+              </p>
+              {sourceEvent?.failureReason && (
+                <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">
+                  {sourceEvent.failureReason}
+                </span>
+              )}
+              {sourceEvent?.cartSummary && (
+                <span className="text-sm text-slate-500">{sourceEvent.cartSummary}</span>
+              )}
+              {sourceEvent?.planName && (
+                <span className="text-sm text-slate-500">{sourceEvent.planName}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <SectionHeading step={2} title="Context" />
+            <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
+              <div>
                 <dt className="text-xs text-slate-400">Customer</dt>
-                <dd>
-                  {recoveryCase.customer.name} ({recoveryCase.customer.email})
+                <dd className="font-medium text-slate-900">{recoveryCase.customer.name}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-400">Successful payments</dt>
+                <dd className="font-medium text-emerald-700">
+                  {capturedAgg._count._all} ({formatINR(capturedAgg._sum.amount ?? 0)})
                 </dd>
               </div>
-              <div className="flex justify-between sm:block">
-                <dt className="text-xs text-slate-400">Created</dt>
-                <dd>{timeAgo(recoveryCase.createdAt)}</dd>
+              <div>
+                <dt className="text-xs text-slate-400">Failed payments</dt>
+                <dd className="font-medium text-rose-700">{failedCount}</dd>
               </div>
-              <div className="flex justify-between sm:block">
-                <dt className="text-xs text-slate-400">Resolved</dt>
-                <dd>
-                  {recoveryCase.resolvedAt ? timeAgo(recoveryCase.resolvedAt) : "—"}
+              <div>
+                <dt className="text-xs text-slate-400">Subscriptions</dt>
+                <dd className="font-medium text-slate-900">
+                  {activeSubs} active · {pastDueSubs} past due
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-400">Previous attempts</dt>
+                <dd className="font-medium text-slate-900">
+                  {recoveryCase.retryCount} retries · {recoveryCase.contactCount} contacts
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-400">Recovery window</dt>
+                <dd className={`font-medium ${evaluation.windowExpired ? "text-rose-700" : "text-slate-900"}`}>
+                  {evaluation.windowExpired
+                    ? windowStatusLabel(recoveryCase.windowExpiresAt)
+                    : `${evaluation.retriesRemaining} retries left · ${windowStatusLabel(recoveryCase.windowExpiresAt)}`}
                 </dd>
               </div>
             </dl>
           </div>
 
+          <div className="rounded-xl border border-violet-100 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <SectionHeading step={3} title="AI Reasoning" />
+              {latestDecision && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    latestDecision.provider.includes("mock")
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-violet-100 text-violet-700"
+                  }`}
+                >
+                  {latestDecision.provider.includes("mock")
+                    ? "Demo / Mock AI Mode"
+                    : `${latestDecision.provider} · ${latestDecision.model}`}
+                </span>
+              )}
+            </div>
+            {latestDecision ? (
+              <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
+                <div>
+                  <dt className="text-xs text-slate-400">Diagnosis</dt>
+                  <dd className="font-mono text-xs font-semibold text-slate-900">
+                    {latestDecision.diagnosis}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-400">Risk</dt>
+                  <dd><StatusBadge value={latestDecision.riskLevel} /></dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-400">Recommendation</dt>
+                  <dd className="font-semibold text-emerald-700">
+                    {humanize(latestDecision.recommendedAction)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-400">Confidence</dt>
+                  <dd className="font-semibold text-slate-900">
+                    {Math.round(latestDecision.confidence * 100)}%
+                  </dd>
+                </div>
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <dt className="text-xs text-slate-400">Reasoning</dt>
+                  <dd className="mt-1 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                    {latestDecision.reasoning}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+                No AI analysis yet for this case.
+                <AnalyzeCaseButton caseId={recoveryCase.id} />
+              </div>
+            )}
+          </div>
+
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">
-              Policy Status & Actions
-            </h2>
+            <SectionHeading step={4} title="Policy Decision" />
             <p
-              className={`mt-2 rounded-lg p-3 text-sm ${
+              className={`mt-3 rounded-lg p-3 text-sm ${
                 evaluation.eligible
                   ? "bg-emerald-50 text-emerald-800"
                   : "bg-rose-50 text-rose-800"
@@ -202,6 +344,112 @@ export default async function CaseDetailPage({
             </div>
           </div>
 
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <SectionHeading step={5} title="Action & Result" />
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-lg bg-slate-50 p-3">
+                <p className="text-xs text-slate-400">Last action executed</p>
+                <p className="mt-1 text-sm font-medium text-slate-900">
+                  {lastExecuted
+                    ? `${humanize(lastExecuted.action)} · ${lastExecuted.result?.replace(/_/g, " ") ?? "pending"}`
+                    : "No actions executed yet"}
+                </p>
+                {lastExecuted?.notes && (
+                  <p className="mt-0.5 text-xs text-slate-400">{lastExecuted.notes}</p>
+                )}
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <p className="text-xs text-slate-400">Result</p>
+                <p
+                  className={`mt-1 text-lg font-bold ${
+                    totalRecovered > 0 ? "text-emerald-700" : "text-slate-700"
+                  }`}
+                >
+                  {recoveryCase.status === "RECOVERED"
+                    ? `Recovered ${formatINR(totalRecovered)}`
+                    : totalRecovered > 0
+                      ? `Partially recovered ${formatINR(totalRecovered)}`
+                      : humanize(recoveryCase.status)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <SectionHeading step={6} title="Audit Trail" />
+            </div>
+            <ol className="divide-y divide-slate-100">
+              {auditLogs.map((log) => (
+                <li key={log.id} className="flex items-start gap-3 px-5 py-3">
+                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-slate-800">{log.event}</p>
+                    <p className="truncate text-xs text-slate-400">
+                      {log.actor.replace(/_/g, " ")} · {timeAgo(log.createdAt)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+              {auditLogs.length === 0 && (
+                <li className="px-5 py-6 text-center text-sm text-slate-400">
+                  No audit entries yet.
+                </li>
+              )}
+            </ol>
+          </div>
+        </div>
+
+        <aside className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-xs text-slate-500">Amount at Risk</p>
+              <p className="mt-1 text-lg font-semibold text-rose-700">
+                {formatINR(recoveryCase.amountAtRisk)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-xs text-slate-500">Recovered</p>
+              <p className="mt-1 text-lg font-semibold text-emerald-700">
+                {formatINR(totalRecovered)}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Recovery Policy (deterministic)
+            </h2>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-slate-500">Max retries</dt>
+                <dd className="font-medium">
+                  {config.maxRetries} ({evaluation.retriesRemaining} left)
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-500">Max contacts</dt>
+                <dd className="font-medium">
+                  {config.maxContactAttempts} ({evaluation.contactsRemaining} left)
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-500">Window</dt>
+                <dd className="font-medium">{config.recoveryWindowHours}h</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-500">Approval threshold</dt>
+                <dd className="font-medium">{formatINR(config.approvalThresholdPaise)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-slate-500">Merchant approved</dt>
+                <dd className="font-medium">
+                  {recoveryCase.merchantApproved ? "Yes" : "No"}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <h2 className="border-b border-slate-200 px-5 py-4 text-sm font-semibold text-slate-900">
               Intervention History
@@ -212,7 +460,7 @@ export default async function CaseDetailPage({
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-800">
-                        {iv.action.replace(/_/g, " ")}
+                        {humanize(iv.action)}
                         <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
                           {iv.status.toLowerCase()}
                         </span>
@@ -220,19 +468,19 @@ export default async function CaseDetailPage({
                       <p className="text-xs text-slate-400">{iv.notes}</p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm ${RESULT_STYLES[iv.result ?? ""] ?? ""}`}>
+                      <p className="text-xs font-medium text-slate-600">
                         {iv.result?.replace(/_/g, " ") ?? "PENDING"}
                       </p>
                       {iv.recoveredAmount > 0 && (
-                        <p className="text-xs font-medium text-emerald-700">
+                        <p className="text-xs font-semibold text-emerald-700">
                           +{formatINR(iv.recoveredAmount)}
                         </p>
                       )}
                       <p className="text-xs text-slate-400">
                         {iv.executedAt
                           ? timeAgo(iv.executedAt)
-                          : iv.scheduledAt
-                            ? `due ${timeAgo(iv.scheduledAt).replace(" ago", "")}`
+                          : iv.scheduledAt && dueMinutes >= 0
+                            ? `due in ${dueMinutes}m`
                             : ""}
                       </p>
                     </div>
@@ -246,64 +494,8 @@ export default async function CaseDetailPage({
               )}
             </ul>
           </div>
-        </section>
-
-        <aside className="space-y-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">
-              Recovery Policy (deterministic)
-            </h2>
-            <dl className="mt-3 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Max retries</dt>
-                <dd className="font-medium">
-                  {config.maxRetries} ({evaluation.retriesRemaining} left)
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Max contact attempts</dt>
-                <dd className="font-medium">
-                  {config.maxContactAttempts} ({evaluation.contactsRemaining} left)
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Recovery window</dt>
-                <dd className="font-medium">{config.recoveryWindowHours}h</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Approval threshold</dt>
-                <dd className="font-medium">
-                  {formatINR(config.approvalThresholdPaise)}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Merchant approved</dt>
-                <dd className="font-medium">
-                  {recoveryCase.merchantApproved ? "Yes" : "No"}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">Audit Timeline</h2>
-            <ol className="mt-4 space-y-4">
-              {auditLogs.map((log) => (
-                <li key={log.id} className="relative border-l-2 border-slate-100 pl-4">
-                  <span className="absolute top-1.5 -left-[5px] h-2 w-2 rounded-full bg-emerald-500" />
-                  <p className="text-xs font-medium text-slate-800">{log.event}</p>
-                  <p className="text-xs text-slate-400">
-                    {log.actor.replace(/_/g, " ")} · {timeAgo(log.createdAt)}
-                  </p>
-                </li>
-              ))}
-              {auditLogs.length === 0 && (
-                <li className="text-sm text-slate-400">No audit entries yet.</li>
-              )}
-            </ol>
-          </div>
         </aside>
-      </div>
+      </section>
     </div>
   );
 }

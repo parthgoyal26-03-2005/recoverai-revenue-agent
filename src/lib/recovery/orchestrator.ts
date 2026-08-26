@@ -531,3 +531,97 @@ export async function processDueActions(
   }
   return { processed: due.length };
 }
+
+export type BatchCaseResult = {
+  caseId: string;
+  status: "executed" | "blocked" | "approval_required";
+  actionType: string;
+  caseStatusAfter: string;
+  recoveredAmountPaise: number;
+};
+
+export type BatchRunSummary = {
+  processedCases: number;
+  results: BatchCaseResult[];
+  revenueAtRiskPaise: number;
+};
+
+const BATCH_PROGRESS_ACTIONS = [
+  "RETRY_PAYMENT",
+  "SCHEDULE_RETRY",
+  "SEND_REMINDER",
+  "OFFER_ASSISTANCE",
+];
+
+export async function runRecoveryBatch(
+  store: RecoveryStore,
+  opts?: { now?: Date; rng?: () => number; maxCases?: number; onProgress?: (processed: number, total: number, last: BatchCaseResult) => void }
+): Promise<BatchRunSummary> {
+  const activeCases = await store.findActiveCases(opts?.maxCases ?? 200);
+  const results: BatchCaseResult[] = [];
+  let revenueAtRiskPaise = 0;
+
+  for (let i = 0; i < activeCases.length; i++) {
+    const kase = activeCases[i];
+    let result: BatchCaseResult = {
+      caseId: kase.id,
+      status: "blocked",
+      actionType: "NONE",
+      caseStatusAfter: kase.status,
+      recoveredAmountPaise: 0,
+    };
+
+    const evaluation = await evaluateCase(store, kase.id, { now: opts?.now });
+    if (!evaluation.found || !evaluation.policy) {
+      results.push(result);
+      opts?.onProgress?.(i + 1, activeCases.length, result);
+      continue;
+    }
+
+    const policy = evaluation.policy;
+    const progressAction = policy.allowedActions.find(
+      (a) => BATCH_PROGRESS_ACTIONS.includes(a)
+    );
+
+    if (policy.requiresApproval) {
+      const escalateAllowed = policy.allowedActions.includes("ESCALATE_TO_MERCHANT");
+      if (escalateAllowed && !kase.merchantApproved) {
+        const outcome = await executeCaseAction(store, kase.id, "ESCALATE_TO_MERCHANT", opts);
+        result = {
+          caseId: kase.id,
+          status: outcome.ok ? "executed" : "blocked",
+          actionType: "ESCALATE_TO_MERCHANT",
+          caseStatusAfter: outcome.ok ? outcome.caseStatus : kase.status,
+          recoveredAmountPaise: outcome.ok ? outcome.recoveredAmountPaise : 0,
+        };
+        if (outcome.ok) result.status = "approval_required";
+      } else {
+        result.status = "approval_required";
+      }
+    } else if (progressAction) {
+      const outcome = await executeCaseAction(store, kase.id, progressAction, opts);
+      result = {
+        caseId: kase.id,
+        status: outcome.ok ? "executed" : "blocked",
+        actionType: progressAction,
+        caseStatusAfter: outcome.ok ? outcome.caseStatus : kase.status,
+        recoveredAmountPaise: outcome.ok ? outcome.recoveredAmountPaise : 0,
+      };
+    } else if (policy.stopRequired && policy.allowedActions.includes("STOP_RECOVERY")) {
+      const outcome = await executeCaseAction(store, kase.id, "STOP_RECOVERY", opts);
+      result = {
+        caseId: kase.id,
+        status: outcome.ok ? "executed" : "blocked",
+        actionType: "STOP_RECOVERY",
+        caseStatusAfter: outcome.ok ? outcome.caseStatus : kase.status,
+        recoveredAmountPaise: 0,
+      };
+    }
+
+    revenueAtRiskPaise += kase.amountAtRisk;
+    results.push(result);
+    opts?.onProgress?.(results.length, activeCases.length, result);
+  }
+
+  return { processedCases: results.length, results, revenueAtRiskPaise };
+}
