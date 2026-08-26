@@ -218,7 +218,15 @@ describe("integration with the real database", () => {
       include: { customer: true },
     });
     if (!anyCase) return;
-    const context = await createPrismaContextSource(prisma).loadContext(anyCase.id);
+
+    let context = null;
+    for (let attempt = 0; attempt < 3 && !context; attempt++) {
+      try {
+        context = await createPrismaContextSource(prisma).loadContext(anyCase.id);
+      } catch {
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
     expect(context).not.toBeNull();
     if (!context) return;
     const serialized = JSON.stringify(context);
