@@ -44,6 +44,9 @@ export type AIDecisionMinAggregateOutputType = {
   recommendedAction: $Enums.InterventionAction | null
   confidence: number | null
   reasoning: string | null
+  priority: $Enums.CasePriority | null
+  requiresMerchantAttention: boolean | null
+  provider: string | null
   model: string | null
   latencyMs: number | null
   createdAt: Date | null
@@ -57,6 +60,9 @@ export type AIDecisionMaxAggregateOutputType = {
   recommendedAction: $Enums.InterventionAction | null
   confidence: number | null
   reasoning: string | null
+  priority: $Enums.CasePriority | null
+  requiresMerchantAttention: boolean | null
+  provider: string | null
   model: string | null
   latencyMs: number | null
   createdAt: Date | null
@@ -70,6 +76,9 @@ export type AIDecisionCountAggregateOutputType = {
   recommendedAction: number
   confidence: number
   reasoning: number
+  priority: number
+  requiresMerchantAttention: number
+  provider: number
   model: number
   latencyMs: number
   createdAt: number
@@ -95,6 +104,9 @@ export type AIDecisionMinAggregateInputType = {
   recommendedAction?: true
   confidence?: true
   reasoning?: true
+  priority?: true
+  requiresMerchantAttention?: true
+  provider?: true
   model?: true
   latencyMs?: true
   createdAt?: true
@@ -108,6 +120,9 @@ export type AIDecisionMaxAggregateInputType = {
   recommendedAction?: true
   confidence?: true
   reasoning?: true
+  priority?: true
+  requiresMerchantAttention?: true
+  provider?: true
   model?: true
   latencyMs?: true
   createdAt?: true
@@ -121,6 +136,9 @@ export type AIDecisionCountAggregateInputType = {
   recommendedAction?: true
   confidence?: true
   reasoning?: true
+  priority?: true
+  requiresMerchantAttention?: true
+  provider?: true
   model?: true
   latencyMs?: true
   createdAt?: true
@@ -221,6 +239,9 @@ export type AIDecisionGroupByOutputType = {
   recommendedAction: $Enums.InterventionAction
   confidence: number
   reasoning: string
+  priority: $Enums.CasePriority
+  requiresMerchantAttention: boolean
+  provider: string
   model: string
   latencyMs: number
   createdAt: Date
@@ -257,6 +278,9 @@ export type AIDecisionWhereInput = {
   recommendedAction?: Prisma.EnumInterventionActionFilter<"AIDecision"> | $Enums.InterventionAction
   confidence?: Prisma.FloatFilter<"AIDecision"> | number
   reasoning?: Prisma.StringFilter<"AIDecision"> | string
+  priority?: Prisma.EnumCasePriorityFilter<"AIDecision"> | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFilter<"AIDecision"> | boolean
+  provider?: Prisma.StringFilter<"AIDecision"> | string
   model?: Prisma.StringFilter<"AIDecision"> | string
   latencyMs?: Prisma.IntFilter<"AIDecision"> | number
   createdAt?: Prisma.DateTimeFilter<"AIDecision"> | Date | string
@@ -271,6 +295,9 @@ export type AIDecisionOrderByWithRelationInput = {
   recommendedAction?: Prisma.SortOrder
   confidence?: Prisma.SortOrder
   reasoning?: Prisma.SortOrder
+  priority?: Prisma.SortOrder
+  requiresMerchantAttention?: Prisma.SortOrder
+  provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   latencyMs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -288,6 +315,9 @@ export type AIDecisionWhereUniqueInput = Prisma.AtLeast<{
   recommendedAction?: Prisma.EnumInterventionActionFilter<"AIDecision"> | $Enums.InterventionAction
   confidence?: Prisma.FloatFilter<"AIDecision"> | number
   reasoning?: Prisma.StringFilter<"AIDecision"> | string
+  priority?: Prisma.EnumCasePriorityFilter<"AIDecision"> | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFilter<"AIDecision"> | boolean
+  provider?: Prisma.StringFilter<"AIDecision"> | string
   model?: Prisma.StringFilter<"AIDecision"> | string
   latencyMs?: Prisma.IntFilter<"AIDecision"> | number
   createdAt?: Prisma.DateTimeFilter<"AIDecision"> | Date | string
@@ -302,6 +332,9 @@ export type AIDecisionOrderByWithAggregationInput = {
   recommendedAction?: Prisma.SortOrder
   confidence?: Prisma.SortOrder
   reasoning?: Prisma.SortOrder
+  priority?: Prisma.SortOrder
+  requiresMerchantAttention?: Prisma.SortOrder
+  provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   latencyMs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -323,6 +356,9 @@ export type AIDecisionScalarWhereWithAggregatesInput = {
   recommendedAction?: Prisma.EnumInterventionActionWithAggregatesFilter<"AIDecision"> | $Enums.InterventionAction
   confidence?: Prisma.FloatWithAggregatesFilter<"AIDecision"> | number
   reasoning?: Prisma.StringWithAggregatesFilter<"AIDecision"> | string
+  priority?: Prisma.EnumCasePriorityWithAggregatesFilter<"AIDecision"> | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolWithAggregatesFilter<"AIDecision"> | boolean
+  provider?: Prisma.StringWithAggregatesFilter<"AIDecision"> | string
   model?: Prisma.StringWithAggregatesFilter<"AIDecision"> | string
   latencyMs?: Prisma.IntWithAggregatesFilter<"AIDecision"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"AIDecision"> | Date | string
@@ -335,6 +371,9 @@ export type AIDecisionCreateInput = {
   recommendedAction: $Enums.InterventionAction
   confidence: number
   reasoning: string
+  priority?: $Enums.CasePriority
+  requiresMerchantAttention?: boolean
+  provider?: string
   model?: string
   latencyMs?: number
   createdAt?: Date | string
@@ -349,6 +388,9 @@ export type AIDecisionUncheckedCreateInput = {
   recommendedAction: $Enums.InterventionAction
   confidence: number
   reasoning: string
+  priority?: $Enums.CasePriority
+  requiresMerchantAttention?: boolean
+  provider?: string
   model?: string
   latencyMs?: number
   createdAt?: Date | string
@@ -361,6 +403,9 @@ export type AIDecisionUpdateInput = {
   recommendedAction?: Prisma.EnumInterventionActionFieldUpdateOperationsInput | $Enums.InterventionAction
   confidence?: Prisma.FloatFieldUpdateOperationsInput | number
   reasoning?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumCasePriorityFieldUpdateOperationsInput | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   latencyMs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -375,6 +420,9 @@ export type AIDecisionUncheckedUpdateInput = {
   recommendedAction?: Prisma.EnumInterventionActionFieldUpdateOperationsInput | $Enums.InterventionAction
   confidence?: Prisma.FloatFieldUpdateOperationsInput | number
   reasoning?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumCasePriorityFieldUpdateOperationsInput | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   latencyMs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -388,6 +436,9 @@ export type AIDecisionCreateManyInput = {
   recommendedAction: $Enums.InterventionAction
   confidence: number
   reasoning: string
+  priority?: $Enums.CasePriority
+  requiresMerchantAttention?: boolean
+  provider?: string
   model?: string
   latencyMs?: number
   createdAt?: Date | string
@@ -400,6 +451,9 @@ export type AIDecisionUpdateManyMutationInput = {
   recommendedAction?: Prisma.EnumInterventionActionFieldUpdateOperationsInput | $Enums.InterventionAction
   confidence?: Prisma.FloatFieldUpdateOperationsInput | number
   reasoning?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumCasePriorityFieldUpdateOperationsInput | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   latencyMs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -413,6 +467,9 @@ export type AIDecisionUncheckedUpdateManyInput = {
   recommendedAction?: Prisma.EnumInterventionActionFieldUpdateOperationsInput | $Enums.InterventionAction
   confidence?: Prisma.FloatFieldUpdateOperationsInput | number
   reasoning?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumCasePriorityFieldUpdateOperationsInput | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   latencyMs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -436,6 +493,9 @@ export type AIDecisionCountOrderByAggregateInput = {
   recommendedAction?: Prisma.SortOrder
   confidence?: Prisma.SortOrder
   reasoning?: Prisma.SortOrder
+  priority?: Prisma.SortOrder
+  requiresMerchantAttention?: Prisma.SortOrder
+  provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   latencyMs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -454,6 +514,9 @@ export type AIDecisionMaxOrderByAggregateInput = {
   recommendedAction?: Prisma.SortOrder
   confidence?: Prisma.SortOrder
   reasoning?: Prisma.SortOrder
+  priority?: Prisma.SortOrder
+  requiresMerchantAttention?: Prisma.SortOrder
+  provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   latencyMs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -467,6 +530,9 @@ export type AIDecisionMinOrderByAggregateInput = {
   recommendedAction?: Prisma.SortOrder
   confidence?: Prisma.SortOrder
   reasoning?: Prisma.SortOrder
+  priority?: Prisma.SortOrder
+  requiresMerchantAttention?: Prisma.SortOrder
+  provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   latencyMs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -538,6 +604,9 @@ export type AIDecisionCreateWithoutRecoveryCaseInput = {
   recommendedAction: $Enums.InterventionAction
   confidence: number
   reasoning: string
+  priority?: $Enums.CasePriority
+  requiresMerchantAttention?: boolean
+  provider?: string
   model?: string
   latencyMs?: number
   createdAt?: Date | string
@@ -550,6 +619,9 @@ export type AIDecisionUncheckedCreateWithoutRecoveryCaseInput = {
   recommendedAction: $Enums.InterventionAction
   confidence: number
   reasoning: string
+  priority?: $Enums.CasePriority
+  requiresMerchantAttention?: boolean
+  provider?: string
   model?: string
   latencyMs?: number
   createdAt?: Date | string
@@ -592,6 +664,9 @@ export type AIDecisionScalarWhereInput = {
   recommendedAction?: Prisma.EnumInterventionActionFilter<"AIDecision"> | $Enums.InterventionAction
   confidence?: Prisma.FloatFilter<"AIDecision"> | number
   reasoning?: Prisma.StringFilter<"AIDecision"> | string
+  priority?: Prisma.EnumCasePriorityFilter<"AIDecision"> | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFilter<"AIDecision"> | boolean
+  provider?: Prisma.StringFilter<"AIDecision"> | string
   model?: Prisma.StringFilter<"AIDecision"> | string
   latencyMs?: Prisma.IntFilter<"AIDecision"> | number
   createdAt?: Prisma.DateTimeFilter<"AIDecision"> | Date | string
@@ -604,6 +679,9 @@ export type AIDecisionCreateManyRecoveryCaseInput = {
   recommendedAction: $Enums.InterventionAction
   confidence: number
   reasoning: string
+  priority?: $Enums.CasePriority
+  requiresMerchantAttention?: boolean
+  provider?: string
   model?: string
   latencyMs?: number
   createdAt?: Date | string
@@ -616,6 +694,9 @@ export type AIDecisionUpdateWithoutRecoveryCaseInput = {
   recommendedAction?: Prisma.EnumInterventionActionFieldUpdateOperationsInput | $Enums.InterventionAction
   confidence?: Prisma.FloatFieldUpdateOperationsInput | number
   reasoning?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumCasePriorityFieldUpdateOperationsInput | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   latencyMs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -628,6 +709,9 @@ export type AIDecisionUncheckedUpdateWithoutRecoveryCaseInput = {
   recommendedAction?: Prisma.EnumInterventionActionFieldUpdateOperationsInput | $Enums.InterventionAction
   confidence?: Prisma.FloatFieldUpdateOperationsInput | number
   reasoning?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumCasePriorityFieldUpdateOperationsInput | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   latencyMs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -640,6 +724,9 @@ export type AIDecisionUncheckedUpdateManyWithoutRecoveryCaseInput = {
   recommendedAction?: Prisma.EnumInterventionActionFieldUpdateOperationsInput | $Enums.InterventionAction
   confidence?: Prisma.FloatFieldUpdateOperationsInput | number
   reasoning?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.EnumCasePriorityFieldUpdateOperationsInput | $Enums.CasePriority
+  requiresMerchantAttention?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   latencyMs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -655,6 +742,9 @@ export type AIDecisionSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   recommendedAction?: boolean
   confidence?: boolean
   reasoning?: boolean
+  priority?: boolean
+  requiresMerchantAttention?: boolean
+  provider?: boolean
   model?: boolean
   latencyMs?: boolean
   createdAt?: boolean
@@ -669,6 +759,9 @@ export type AIDecisionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   recommendedAction?: boolean
   confidence?: boolean
   reasoning?: boolean
+  priority?: boolean
+  requiresMerchantAttention?: boolean
+  provider?: boolean
   model?: boolean
   latencyMs?: boolean
   createdAt?: boolean
@@ -683,6 +776,9 @@ export type AIDecisionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   recommendedAction?: boolean
   confidence?: boolean
   reasoning?: boolean
+  priority?: boolean
+  requiresMerchantAttention?: boolean
+  provider?: boolean
   model?: boolean
   latencyMs?: boolean
   createdAt?: boolean
@@ -697,12 +793,15 @@ export type AIDecisionSelectScalar = {
   recommendedAction?: boolean
   confidence?: boolean
   reasoning?: boolean
+  priority?: boolean
+  requiresMerchantAttention?: boolean
+  provider?: boolean
   model?: boolean
   latencyMs?: boolean
   createdAt?: boolean
 }
 
-export type AIDecisionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recoveryCaseId" | "diagnosis" | "riskLevel" | "recommendedAction" | "confidence" | "reasoning" | "model" | "latencyMs" | "createdAt", ExtArgs["result"]["aIDecision"]>
+export type AIDecisionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recoveryCaseId" | "diagnosis" | "riskLevel" | "recommendedAction" | "confidence" | "reasoning" | "priority" | "requiresMerchantAttention" | "provider" | "model" | "latencyMs" | "createdAt", ExtArgs["result"]["aIDecision"]>
 export type AIDecisionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   recoveryCase?: boolean | Prisma.RecoveryCaseDefaultArgs<ExtArgs>
 }
@@ -726,6 +825,9 @@ export type $AIDecisionPayload<ExtArgs extends runtime.Types.Extensions.Internal
     recommendedAction: $Enums.InterventionAction
     confidence: number
     reasoning: string
+    priority: $Enums.CasePriority
+    requiresMerchantAttention: boolean
+    provider: string
     model: string
     latencyMs: number
     createdAt: Date
@@ -1160,6 +1262,9 @@ export interface AIDecisionFieldRefs {
   readonly recommendedAction: Prisma.FieldRef<"AIDecision", 'InterventionAction'>
   readonly confidence: Prisma.FieldRef<"AIDecision", 'Float'>
   readonly reasoning: Prisma.FieldRef<"AIDecision", 'String'>
+  readonly priority: Prisma.FieldRef<"AIDecision", 'CasePriority'>
+  readonly requiresMerchantAttention: Prisma.FieldRef<"AIDecision", 'Boolean'>
+  readonly provider: Prisma.FieldRef<"AIDecision", 'String'>
   readonly model: Prisma.FieldRef<"AIDecision", 'String'>
   readonly latencyMs: Prisma.FieldRef<"AIDecision", 'Int'>
   readonly createdAt: Prisma.FieldRef<"AIDecision", 'DateTime'>

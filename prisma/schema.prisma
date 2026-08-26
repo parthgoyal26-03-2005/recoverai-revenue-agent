@@ -261,16 +261,19 @@ model RecoveryPolicy {
 }
 
 model AIDecision {
-  id                String    @id @default(cuid())
-  recoveryCaseId    String
-  diagnosis         String
-  riskLevel         RiskLevel
-  recommendedAction InterventionAction
-  confidence        Float
-  reasoning         String
-  model             String    @default("rule-based-fallback")
-  latencyMs         Int       @default(0)
-  createdAt         DateTime  @default(now())
+  id                        String             @id @default(cuid())
+  recoveryCaseId            String
+  diagnosis                 String
+  riskLevel                 RiskLevel
+  recommendedAction         InterventionAction
+  confidence                Float
+  reasoning                 String
+  priority                  CasePriority       @default(MEDIUM)
+  requiresMerchantAttention Boolean            @default(false)
+  provider                  String             @default("mock")
+  model                     String             @default("mock-rules-v1")
+  latencyMs                 Int                @default(0)
+  createdAt                 DateTime           @default(now())
 
   recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
 

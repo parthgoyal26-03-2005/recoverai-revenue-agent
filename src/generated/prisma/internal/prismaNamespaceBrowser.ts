@@ -218,6 +218,9 @@ export const AIDecisionScalarFieldEnum = {
   recommendedAction: 'recommendedAction',
   confidence: 'confidence',
   reasoning: 'reasoning',
+  priority: 'priority',
+  requiresMerchantAttention: 'requiresMerchantAttention',
+  provider: 'provider',
   model: 'model',
   latencyMs: 'latencyMs',
   createdAt: 'createdAt'
