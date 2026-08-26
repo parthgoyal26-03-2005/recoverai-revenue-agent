@@ -107,17 +107,61 @@ export class OpenAICompatibleProvider implements AIProvider {
   }
 }
 
-export function createAiProviderFromEnv(): AIProvider | null {
-  const explicit = process.env.AI_PROVIDER;
-  if (explicit === "mock") return new MockAIProvider();
+type ProviderSpec = {
+  label: string;
+  apiKeyEnv: string;
+  baseUrlEnv: string;
+  defaultBaseUrl: string;
+  modelEnv: string;
+  defaultModel: string;
+};
 
-  const apiKey =
-    process.env.OPENAI_API_KEY ?? process.env.AI_API_KEY ?? "";
-  if (!apiKey && explicit !== "openai") return null;
+export const PROVIDER_SPECS: Record<"gemini" | "groq", ProviderSpec> = {
+  gemini: {
+    label: "gemini",
+    apiKeyEnv: "GEMINI_API_KEY",
+    baseUrlEnv: "GEMINI_BASE_URL",
+    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    modelEnv: "GEMINI_MODEL",
+    defaultModel: "gemini-2.5-flash",
+  },
+  groq: {
+    label: "groq",
+    apiKeyEnv: "GROQ_API_KEY",
+    baseUrlEnv: "GROQ_BASE_URL",
+    defaultBaseUrl: "https://api.groq.com/openai/v1",
+    modelEnv: "GROQ_MODEL",
+    defaultModel: "llama-3.3-70b-versatile",
+  },
+};
 
+function tryCreateProvider(id: "gemini" | "groq"): AIProvider | null {
+  const spec = PROVIDER_SPECS[id];
+  const apiKey = process.env[spec.apiKeyEnv];
+  if (!apiKey) return null;
   return new OpenAICompatibleProvider({
     apiKey,
-    baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
-    model: process.env.AI_MODEL ?? "gpt-4o-mini",
+    baseUrl: process.env[spec.baseUrlEnv] || spec.defaultBaseUrl,
+    model: process.env[spec.modelEnv] || spec.defaultModel,
+    name: spec.label,
   });
+}
+
+export function createAiProviderFromEnv(): AIProvider | null {
+  const selected = process.env.AI_PROVIDER?.trim().toLowerCase();
+
+  if (selected === "mock") return new MockAIProvider();
+
+  if (selected === "gemini" || selected === "groq") {
+    return tryCreateProvider(selected);
+  }
+
+  if (!selected) {
+    for (const id of ["gemini", "groq"] as const) {
+      const provider = tryCreateProvider(id);
+      if (provider) return provider;
+    }
+  }
+
+  return null;
 }
