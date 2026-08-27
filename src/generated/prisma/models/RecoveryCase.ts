@@ -50,6 +50,8 @@ export type RecoveryCaseMinAggregateOutputType = {
   contactCount: number | null
   merchantApproved: boolean | null
   merchantApprovedAt: Date | null
+  merchantRejectedAt: Date | null
+  rejectionReason: string | null
   windowExpiresAt: Date | null
   transactionId: string | null
   checkoutSessionId: string | null
@@ -70,6 +72,8 @@ export type RecoveryCaseMaxAggregateOutputType = {
   contactCount: number | null
   merchantApproved: boolean | null
   merchantApprovedAt: Date | null
+  merchantRejectedAt: Date | null
+  rejectionReason: string | null
   windowExpiresAt: Date | null
   transactionId: string | null
   checkoutSessionId: string | null
@@ -90,6 +94,8 @@ export type RecoveryCaseCountAggregateOutputType = {
   contactCount: number
   merchantApproved: number
   merchantApprovedAt: number
+  merchantRejectedAt: number
+  rejectionReason: number
   windowExpiresAt: number
   transactionId: number
   checkoutSessionId: number
@@ -124,6 +130,8 @@ export type RecoveryCaseMinAggregateInputType = {
   contactCount?: true
   merchantApproved?: true
   merchantApprovedAt?: true
+  merchantRejectedAt?: true
+  rejectionReason?: true
   windowExpiresAt?: true
   transactionId?: true
   checkoutSessionId?: true
@@ -144,6 +152,8 @@ export type RecoveryCaseMaxAggregateInputType = {
   contactCount?: true
   merchantApproved?: true
   merchantApprovedAt?: true
+  merchantRejectedAt?: true
+  rejectionReason?: true
   windowExpiresAt?: true
   transactionId?: true
   checkoutSessionId?: true
@@ -164,6 +174,8 @@ export type RecoveryCaseCountAggregateInputType = {
   contactCount?: true
   merchantApproved?: true
   merchantApprovedAt?: true
+  merchantRejectedAt?: true
+  rejectionReason?: true
   windowExpiresAt?: true
   transactionId?: true
   checkoutSessionId?: true
@@ -271,6 +283,8 @@ export type RecoveryCaseGroupByOutputType = {
   contactCount: number
   merchantApproved: boolean
   merchantApprovedAt: Date | null
+  merchantRejectedAt: Date | null
+  rejectionReason: string | null
   windowExpiresAt: Date
   transactionId: string | null
   checkoutSessionId: string | null
@@ -314,6 +328,8 @@ export type RecoveryCaseWhereInput = {
   contactCount?: Prisma.IntFilter<"RecoveryCase"> | number
   merchantApproved?: Prisma.BoolFilter<"RecoveryCase"> | boolean
   merchantApprovedAt?: Prisma.DateTimeNullableFilter<"RecoveryCase"> | Date | string | null
+  merchantRejectedAt?: Prisma.DateTimeNullableFilter<"RecoveryCase"> | Date | string | null
+  rejectionReason?: Prisma.StringNullableFilter<"RecoveryCase"> | string | null
   windowExpiresAt?: Prisma.DateTimeFilter<"RecoveryCase"> | Date | string
   transactionId?: Prisma.StringNullableFilter<"RecoveryCase"> | string | null
   checkoutSessionId?: Prisma.StringNullableFilter<"RecoveryCase"> | string | null
@@ -342,6 +358,8 @@ export type RecoveryCaseOrderByWithRelationInput = {
   contactCount?: Prisma.SortOrder
   merchantApproved?: Prisma.SortOrder
   merchantApprovedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  merchantRejectedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  rejectionReason?: Prisma.SortOrderInput | Prisma.SortOrder
   windowExpiresAt?: Prisma.SortOrder
   transactionId?: Prisma.SortOrderInput | Prisma.SortOrder
   checkoutSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -376,6 +394,8 @@ export type RecoveryCaseWhereUniqueInput = Prisma.AtLeast<{
   contactCount?: Prisma.IntFilter<"RecoveryCase"> | number
   merchantApproved?: Prisma.BoolFilter<"RecoveryCase"> | boolean
   merchantApprovedAt?: Prisma.DateTimeNullableFilter<"RecoveryCase"> | Date | string | null
+  merchantRejectedAt?: Prisma.DateTimeNullableFilter<"RecoveryCase"> | Date | string | null
+  rejectionReason?: Prisma.StringNullableFilter<"RecoveryCase"> | string | null
   windowExpiresAt?: Prisma.DateTimeFilter<"RecoveryCase"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"RecoveryCase"> | Date | string
   resolvedAt?: Prisma.DateTimeNullableFilter<"RecoveryCase"> | Date | string | null
@@ -401,6 +421,8 @@ export type RecoveryCaseOrderByWithAggregationInput = {
   contactCount?: Prisma.SortOrder
   merchantApproved?: Prisma.SortOrder
   merchantApprovedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  merchantRejectedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  rejectionReason?: Prisma.SortOrderInput | Prisma.SortOrder
   windowExpiresAt?: Prisma.SortOrder
   transactionId?: Prisma.SortOrderInput | Prisma.SortOrder
   checkoutSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -429,6 +451,8 @@ export type RecoveryCaseScalarWhereWithAggregatesInput = {
   contactCount?: Prisma.IntWithAggregatesFilter<"RecoveryCase"> | number
   merchantApproved?: Prisma.BoolWithAggregatesFilter<"RecoveryCase"> | boolean
   merchantApprovedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"RecoveryCase"> | Date | string | null
+  merchantRejectedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"RecoveryCase"> | Date | string | null
+  rejectionReason?: Prisma.StringNullableWithAggregatesFilter<"RecoveryCase"> | string | null
   windowExpiresAt?: Prisma.DateTimeWithAggregatesFilter<"RecoveryCase"> | Date | string
   transactionId?: Prisma.StringNullableWithAggregatesFilter<"RecoveryCase"> | string | null
   checkoutSessionId?: Prisma.StringNullableWithAggregatesFilter<"RecoveryCase"> | string | null
@@ -447,6 +471,8 @@ export type RecoveryCaseCreateInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -475,6 +501,8 @@ export type RecoveryCaseUncheckedCreateInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -499,6 +527,8 @@ export type RecoveryCaseUpdateInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -527,6 +557,8 @@ export type RecoveryCaseUncheckedUpdateInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -553,6 +585,8 @@ export type RecoveryCaseCreateManyInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -571,6 +605,8 @@ export type RecoveryCaseUpdateManyMutationInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -591,6 +627,8 @@ export type RecoveryCaseUncheckedUpdateManyInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -626,6 +664,8 @@ export type RecoveryCaseCountOrderByAggregateInput = {
   contactCount?: Prisma.SortOrder
   merchantApproved?: Prisma.SortOrder
   merchantApprovedAt?: Prisma.SortOrder
+  merchantRejectedAt?: Prisma.SortOrder
+  rejectionReason?: Prisma.SortOrder
   windowExpiresAt?: Prisma.SortOrder
   transactionId?: Prisma.SortOrder
   checkoutSessionId?: Prisma.SortOrder
@@ -652,6 +692,8 @@ export type RecoveryCaseMaxOrderByAggregateInput = {
   contactCount?: Prisma.SortOrder
   merchantApproved?: Prisma.SortOrder
   merchantApprovedAt?: Prisma.SortOrder
+  merchantRejectedAt?: Prisma.SortOrder
+  rejectionReason?: Prisma.SortOrder
   windowExpiresAt?: Prisma.SortOrder
   transactionId?: Prisma.SortOrder
   checkoutSessionId?: Prisma.SortOrder
@@ -672,6 +714,8 @@ export type RecoveryCaseMinOrderByAggregateInput = {
   contactCount?: Prisma.SortOrder
   merchantApproved?: Prisma.SortOrder
   merchantApprovedAt?: Prisma.SortOrder
+  merchantRejectedAt?: Prisma.SortOrder
+  rejectionReason?: Prisma.SortOrder
   windowExpiresAt?: Prisma.SortOrder
   transactionId?: Prisma.SortOrder
   checkoutSessionId?: Prisma.SortOrder
@@ -891,6 +935,8 @@ export type RecoveryCaseCreateWithoutMerchantInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -917,6 +963,8 @@ export type RecoveryCaseUncheckedCreateWithoutMerchantInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -972,6 +1020,8 @@ export type RecoveryCaseScalarWhereInput = {
   contactCount?: Prisma.IntFilter<"RecoveryCase"> | number
   merchantApproved?: Prisma.BoolFilter<"RecoveryCase"> | boolean
   merchantApprovedAt?: Prisma.DateTimeNullableFilter<"RecoveryCase"> | Date | string | null
+  merchantRejectedAt?: Prisma.DateTimeNullableFilter<"RecoveryCase"> | Date | string | null
+  rejectionReason?: Prisma.StringNullableFilter<"RecoveryCase"> | string | null
   windowExpiresAt?: Prisma.DateTimeFilter<"RecoveryCase"> | Date | string
   transactionId?: Prisma.StringNullableFilter<"RecoveryCase"> | string | null
   checkoutSessionId?: Prisma.StringNullableFilter<"RecoveryCase"> | string | null
@@ -990,6 +1040,8 @@ export type RecoveryCaseCreateWithoutCustomerInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1016,6 +1068,8 @@ export type RecoveryCaseUncheckedCreateWithoutCustomerInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1066,6 +1120,8 @@ export type RecoveryCaseCreateWithoutTransactionInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1093,6 +1149,8 @@ export type RecoveryCaseUncheckedCreateWithoutTransactionInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1132,6 +1190,8 @@ export type RecoveryCaseUpdateWithoutTransactionInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1159,6 +1219,8 @@ export type RecoveryCaseUncheckedUpdateWithoutTransactionInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1182,6 +1244,8 @@ export type RecoveryCaseCreateWithoutSubscriptionInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1209,6 +1273,8 @@ export type RecoveryCaseUncheckedCreateWithoutSubscriptionInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1248,6 +1314,8 @@ export type RecoveryCaseUpdateWithoutSubscriptionInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1275,6 +1343,8 @@ export type RecoveryCaseUncheckedUpdateWithoutSubscriptionInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1298,6 +1368,8 @@ export type RecoveryCaseCreateWithoutCheckoutSessionInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1325,6 +1397,8 @@ export type RecoveryCaseUncheckedCreateWithoutCheckoutSessionInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1364,6 +1438,8 @@ export type RecoveryCaseUpdateWithoutCheckoutSessionInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1391,6 +1467,8 @@ export type RecoveryCaseUncheckedUpdateWithoutCheckoutSessionInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1414,6 +1492,8 @@ export type RecoveryCaseCreateWithoutInterventionsInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1441,6 +1521,8 @@ export type RecoveryCaseUncheckedCreateWithoutInterventionsInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1480,6 +1562,8 @@ export type RecoveryCaseUpdateWithoutInterventionsInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1507,6 +1591,8 @@ export type RecoveryCaseUncheckedUpdateWithoutInterventionsInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1530,6 +1616,8 @@ export type RecoveryCaseCreateWithoutAiDecisionsInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1557,6 +1645,8 @@ export type RecoveryCaseUncheckedCreateWithoutAiDecisionsInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1596,6 +1686,8 @@ export type RecoveryCaseUpdateWithoutAiDecisionsInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1623,6 +1715,8 @@ export type RecoveryCaseUncheckedUpdateWithoutAiDecisionsInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1646,6 +1740,8 @@ export type RecoveryCaseCreateWithoutAuditLogsInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1673,6 +1769,8 @@ export type RecoveryCaseUncheckedCreateWithoutAuditLogsInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1712,6 +1810,8 @@ export type RecoveryCaseUpdateWithoutAuditLogsInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1739,6 +1839,8 @@ export type RecoveryCaseUncheckedUpdateWithoutAuditLogsInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1763,6 +1865,8 @@ export type RecoveryCaseCreateManyMerchantInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1781,6 +1885,8 @@ export type RecoveryCaseUpdateWithoutMerchantInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1807,6 +1913,8 @@ export type RecoveryCaseUncheckedUpdateWithoutMerchantInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1832,6 +1940,8 @@ export type RecoveryCaseUncheckedUpdateManyWithoutMerchantInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1851,6 +1961,8 @@ export type RecoveryCaseCreateManyCustomerInput = {
   contactCount?: number
   merchantApproved?: boolean
   merchantApprovedAt?: Date | string | null
+  merchantRejectedAt?: Date | string | null
+  rejectionReason?: string | null
   windowExpiresAt: Date | string
   transactionId?: string | null
   checkoutSessionId?: string | null
@@ -1869,6 +1981,8 @@ export type RecoveryCaseUpdateWithoutCustomerInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1895,6 +2009,8 @@ export type RecoveryCaseUncheckedUpdateWithoutCustomerInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1920,6 +2036,8 @@ export type RecoveryCaseUncheckedUpdateManyWithoutCustomerInput = {
   contactCount?: Prisma.IntFieldUpdateOperationsInput | number
   merchantApproved?: Prisma.BoolFieldUpdateOperationsInput | boolean
   merchantApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  merchantRejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   windowExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   checkoutSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1989,6 +2107,8 @@ export type RecoveryCaseSelect<ExtArgs extends runtime.Types.Extensions.Internal
   contactCount?: boolean
   merchantApproved?: boolean
   merchantApprovedAt?: boolean
+  merchantRejectedAt?: boolean
+  rejectionReason?: boolean
   windowExpiresAt?: boolean
   transactionId?: boolean
   checkoutSessionId?: boolean
@@ -2018,6 +2138,8 @@ export type RecoveryCaseSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   contactCount?: boolean
   merchantApproved?: boolean
   merchantApprovedAt?: boolean
+  merchantRejectedAt?: boolean
+  rejectionReason?: boolean
   windowExpiresAt?: boolean
   transactionId?: boolean
   checkoutSessionId?: boolean
@@ -2040,6 +2162,8 @@ export type RecoveryCaseSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   contactCount?: boolean
   merchantApproved?: boolean
   merchantApprovedAt?: boolean
+  merchantRejectedAt?: boolean
+  rejectionReason?: boolean
   windowExpiresAt?: boolean
   transactionId?: boolean
   checkoutSessionId?: boolean
@@ -2062,6 +2186,8 @@ export type RecoveryCaseSelectScalar = {
   contactCount?: boolean
   merchantApproved?: boolean
   merchantApprovedAt?: boolean
+  merchantRejectedAt?: boolean
+  rejectionReason?: boolean
   windowExpiresAt?: boolean
   transactionId?: boolean
   checkoutSessionId?: boolean
@@ -2070,7 +2196,7 @@ export type RecoveryCaseSelectScalar = {
   resolvedAt?: boolean
 }
 
-export type RecoveryCaseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "merchantId" | "customerId" | "scenario" | "status" | "priority" | "amountAtRisk" | "retryCount" | "contactCount" | "merchantApproved" | "merchantApprovedAt" | "windowExpiresAt" | "transactionId" | "checkoutSessionId" | "subscriptionId" | "createdAt" | "resolvedAt", ExtArgs["result"]["recoveryCase"]>
+export type RecoveryCaseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "merchantId" | "customerId" | "scenario" | "status" | "priority" | "amountAtRisk" | "retryCount" | "contactCount" | "merchantApproved" | "merchantApprovedAt" | "merchantRejectedAt" | "rejectionReason" | "windowExpiresAt" | "transactionId" | "checkoutSessionId" | "subscriptionId" | "createdAt" | "resolvedAt", ExtArgs["result"]["recoveryCase"]>
 export type RecoveryCaseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   merchant?: boolean | Prisma.MerchantDefaultArgs<ExtArgs>
   customer?: boolean | Prisma.CustomerDefaultArgs<ExtArgs>
@@ -2115,6 +2241,8 @@ export type $RecoveryCasePayload<ExtArgs extends runtime.Types.Extensions.Intern
     contactCount: number
     merchantApproved: boolean
     merchantApprovedAt: Date | null
+    merchantRejectedAt: Date | null
+    rejectionReason: string | null
     windowExpiresAt: Date
     transactionId: string | null
     checkoutSessionId: string | null
@@ -2563,6 +2691,8 @@ export interface RecoveryCaseFieldRefs {
   readonly contactCount: Prisma.FieldRef<"RecoveryCase", 'Int'>
   readonly merchantApproved: Prisma.FieldRef<"RecoveryCase", 'Boolean'>
   readonly merchantApprovedAt: Prisma.FieldRef<"RecoveryCase", 'DateTime'>
+  readonly merchantRejectedAt: Prisma.FieldRef<"RecoveryCase", 'DateTime'>
+  readonly rejectionReason: Prisma.FieldRef<"RecoveryCase", 'String'>
   readonly windowExpiresAt: Prisma.FieldRef<"RecoveryCase", 'DateTime'>
   readonly transactionId: Prisma.FieldRef<"RecoveryCase", 'String'>
   readonly checkoutSessionId: Prisma.FieldRef<"RecoveryCase", 'String'>

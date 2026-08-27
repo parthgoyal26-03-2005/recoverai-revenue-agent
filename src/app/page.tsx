@@ -174,6 +174,35 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      {data.hero.awaitingApprovalCases > 0 && (
+        <Link
+          href="/cases?filter=approval"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 shadow-sm hover:bg-amber-100"
+        >
+          <div>
+            <p className="text-sm font-bold tracking-wide text-amber-900 uppercase">
+              Requires Your Attention
+            </p>
+            <p className="text-xs text-amber-700">
+              High-value recoveries are waiting for your approval.
+            </p>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <p className="text-xl font-bold text-amber-900">
+                {data.hero.awaitingApprovalCases} cases
+              </p>
+              <p className="text-xs text-amber-700">
+                {formatINR(data.hero.awaitingApprovalPaise)}
+              </p>
+            </div>
+            <span className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white">
+              Review Approvals →
+            </span>
+          </div>
+        </Link>
+      )}
+
       <BatchRunner />
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

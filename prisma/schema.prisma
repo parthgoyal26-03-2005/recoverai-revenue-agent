@@ -43,6 +43,7 @@ enum CaseStatus {
   FAILED
   ESCALATED
   STOPPED
+  REJECTED
 }
 
 enum CasePriority {
@@ -205,6 +206,8 @@ model RecoveryCase {
   contactCount       Int               @default(0)
   merchantApproved   Boolean           @default(false)
   merchantApprovedAt DateTime?
+  merchantRejectedAt DateTime?
+  rejectionReason    String?
   windowExpiresAt    DateTime
   transactionId      String?           @unique
   checkoutSessionId  String?           @unique
@@ -292,4 +295,22 @@ model AuditLog {
   recoveryCase RecoveryCase @relation(fields: [recoveryCaseId], references: [id])
 
   @@index([recoveryCaseId, createdAt])
+}
+
+enum RazorpayWebhookEventStatus {
+  PROCESSED
+  SKIPPED
+  FAILED
+}
+
+model RazorpayWebhookEvent {
+  id           String                    @id @default(cuid())
+  eventId      String                    @unique
+  eventType    String
+  receivedAt   DateTime                  @default(now())
+  processedAt  DateTime?
+  status       RazorpayWebhookEventStatus
+  errorMessage String?
+
+  @@index([eventId])
 }

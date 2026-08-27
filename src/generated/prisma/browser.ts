@@ -67,3 +67,8 @@ export type AIDecision = Prisma.AIDecisionModel
  * 
  */
 export type AuditLog = Prisma.AuditLogModel
+/**
+ * Model RazorpayWebhookEvent
+ * 
+ */
+export type RazorpayWebhookEvent = Prisma.RazorpayWebhookEventModel

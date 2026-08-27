@@ -94,6 +94,73 @@ export function formatRupeesShort(paise: number): string {
   return "₹" + new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(paise / 100);
 }
 
+export type ApprovalAttentionInput = {
+  status: string;
+  amountAtRisk: number;
+  merchantApproved: boolean;
+  merchantRejectedAt?: Date | null;
+};
+
+export function computeApprovalAttention(
+  rows: ApprovalAttentionInput[]
+): { cases: number; amountPaise: number } {
+  const pending = rows.filter(
+    (r) => r.status === "ESCALATED" && !r.merchantApproved && !r.merchantRejectedAt
+  );
+  return {
+    cases: pending.length,
+    amountPaise: pending.reduce((s, r) => s + r.amountAtRisk, 0),
+  };
+}
+
+export type CaseRowAction = {
+  label: string;
+  cta: string;
+  tone: "approval" | "ready" | "scheduled" | "recovered" | "failed" | "rejected" | "stopped" | "view";
+};
+
+export function getCaseRowAction(input: {
+  status: string;
+  merchantApproved: boolean;
+  merchantRejectedAt?: Date | null;
+  windowExpiresAt: Date;
+  hasScheduledIntervention: boolean;
+  allowedProgressAction: boolean;
+}): CaseRowAction {
+  const now = Date.now();
+  if (input.status === "RECOVERED") {
+    return { label: "Recovered", cta: "View", tone: "recovered" };
+  }
+  if (input.status === "FAILED") {
+    return { label: "Failed", cta: "View", tone: "failed" };
+  }
+  if (input.status === "STOPPED") {
+    return { label: "Stopped", cta: "View", tone: "stopped" };
+  }
+  if (input.status === "REJECTED" || input.merchantRejectedAt) {
+    return { label: "Rejected by merchant", cta: "View", tone: "rejected" };
+  }
+  if (now > input.windowExpiresAt.getTime()) {
+    return { label: "Window expired", cta: "View", tone: "view" };
+  }
+  if (
+    input.status === "ESCALATED" && !input.merchantApproved
+  ) {
+    return { label: "Approval Required", cta: "Review", tone: "approval" };
+  }
+  if (input.hasScheduledIntervention) {
+    return { label: "Scheduled", cta: "View", tone: "scheduled" };
+  }
+  if (input.allowedProgressAction) {
+    return {
+      label: input.merchantApproved ? "Approved · Ready to Execute" : "Ready to Execute",
+      cta: "Execute",
+      tone: "ready",
+    };
+  }
+  return { label: "In Progress", cta: "View", tone: "view" };
+}
+
 export type AiDecisionRowInput = {
   confidence: number;
   policyAllowed: boolean | undefined;
@@ -314,7 +381,7 @@ export async function getDashboardData() {
     caseAgg,
     statusGroups,
     recoveredAgg,
-    escalatedAgg,
+    escalatedCases,
     interventionActionGroups,
     activeCases,
     policyRow,
@@ -335,10 +402,14 @@ export async function getDashboardData() {
       where: { result: "SUCCESS" },
       _sum: { recoveredAmount: true },
     }),
-    prisma.recoveryCase.aggregate({
+    prisma.recoveryCase.findMany({
       where: { status: "ESCALATED" },
-      _count: { _all: true },
-      _sum: { amountAtRisk: true },
+      select: {
+        status: true,
+        amountAtRisk: true,
+        merchantApproved: true,
+        merchantRejectedAt: true,
+      },
     }),
     prisma.recoveryIntervention.groupBy({
       by: ["action"],
@@ -435,6 +506,8 @@ export async function getDashboardData() {
   const recoveredPaise = recoveredAgg._sum.recoveredAmount ?? 0;
   const totalAtRiskPaise = caseAgg._sum.amountAtRisk ?? 0;
   const totalCases = caseAgg._count._all;
+
+  const approvalAttention = computeApprovalAttention(escalatedCases);
 
   const config = policyConfigFrom(policyRow);
   const progressedCaseIds = new Set<string>();
@@ -587,10 +660,11 @@ export async function getDashboardData() {
       recoveredCases: recoveredCasesCount,
       escalatedCases: countOf("ESCALATED"),
       stoppedCases: countOf("STOPPED"),
-      awaitingApprovalPaise: escalatedAgg._sum.amountAtRisk ?? 0,
-      awaitingApprovalCases: escalatedAgg._count._all,
+      awaitingApprovalPaise: approvalAttention.amountPaise,
+      awaitingApprovalCases: approvalAttention.cases,
       totalCases,
     },
+    approvalAttention,
     funnel,
     scenarioAnalytics,
     aiPerformance: {

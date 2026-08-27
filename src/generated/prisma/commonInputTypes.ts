@@ -440,6 +440,23 @@ export type JsonNullableWithAggregatesFilterBase<$PrismaModel = never> = {
   _max?: Prisma.NestedJsonNullableFilter<$PrismaModel>
 }
 
+export type EnumRazorpayWebhookEventStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.RazorpayWebhookEventStatus | Prisma.EnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.RazorpayWebhookEventStatus[] | Prisma.ListEnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.RazorpayWebhookEventStatus[] | Prisma.ListEnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumRazorpayWebhookEventStatusFilter<$PrismaModel> | $Enums.RazorpayWebhookEventStatus
+}
+
+export type EnumRazorpayWebhookEventStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.RazorpayWebhookEventStatus | Prisma.EnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.RazorpayWebhookEventStatus[] | Prisma.ListEnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.RazorpayWebhookEventStatus[] | Prisma.ListEnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumRazorpayWebhookEventStatusWithAggregatesFilter<$PrismaModel> | $Enums.RazorpayWebhookEventStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumRazorpayWebhookEventStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumRazorpayWebhookEventStatusFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -839,6 +856,23 @@ export type NestedJsonNullableFilterBase<$PrismaModel = never> = {
   gt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
   gte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
   not?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
+}
+
+export type NestedEnumRazorpayWebhookEventStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.RazorpayWebhookEventStatus | Prisma.EnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.RazorpayWebhookEventStatus[] | Prisma.ListEnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.RazorpayWebhookEventStatus[] | Prisma.ListEnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumRazorpayWebhookEventStatusFilter<$PrismaModel> | $Enums.RazorpayWebhookEventStatus
+}
+
+export type NestedEnumRazorpayWebhookEventStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.RazorpayWebhookEventStatus | Prisma.EnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.RazorpayWebhookEventStatus[] | Prisma.ListEnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.RazorpayWebhookEventStatus[] | Prisma.ListEnumRazorpayWebhookEventStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumRazorpayWebhookEventStatusWithAggregatesFilter<$PrismaModel> | $Enums.RazorpayWebhookEventStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumRazorpayWebhookEventStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumRazorpayWebhookEventStatusFilter<$PrismaModel>
 }
 
 

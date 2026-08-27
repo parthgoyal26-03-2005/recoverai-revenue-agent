@@ -45,6 +45,7 @@ export default async function CopilotPage() {
       policyAllowedByPolicy: true,
       policyReason:
         "Loaded from stored decision; run Analyze to re-validate against current policy.",
+      requiresMerchantApproval: d.requiresMerchantAttention,
     };
   }
 

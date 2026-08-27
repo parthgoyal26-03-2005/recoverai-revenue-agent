@@ -56,7 +56,8 @@ export const CaseStatus = {
   RECOVERED: 'RECOVERED',
   FAILED: 'FAILED',
   ESCALATED: 'ESCALATED',
-  STOPPED: 'STOPPED'
+  STOPPED: 'STOPPED',
+  REJECTED: 'REJECTED'
 } as const
 
 export type CaseStatus = (typeof CaseStatus)[keyof typeof CaseStatus]
@@ -123,3 +124,12 @@ export const AuditActor = {
 } as const
 
 export type AuditActor = (typeof AuditActor)[keyof typeof AuditActor]
+
+
+export const RazorpayWebhookEventStatus = {
+  PROCESSED: 'PROCESSED',
+  SKIPPED: 'SKIPPED',
+  FAILED: 'FAILED'
+} as const
+
+export type RazorpayWebhookEventStatus = (typeof RazorpayWebhookEventStatus)[keyof typeof RazorpayWebhookEventStatus]

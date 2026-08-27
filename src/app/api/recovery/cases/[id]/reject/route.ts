@@ -1,17 +1,26 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { createPrismaStore } from "@/lib/recovery/store";
-import { approveCase } from "@/lib/recovery/orchestrator";
+import { rejectCase } from "@/lib/recovery/orchestrator";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(
-  _request: Request,
-  ctx: RouteContext<"/api/recovery/cases/[id]/approve">
+  request: Request,
+  ctx: RouteContext<"/api/recovery/cases/[id]/reject">
 ) {
   const { id } = await ctx.params;
+
+  let body: { reason?: string };
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const reason = body.reason?.trim() || "Merchant declined this recovery.";
+
   const store = createPrismaStore(prisma);
-  const result = await approveCase(store, id);
+  const result = await rejectCase(store, id, reason);
 
   if (!result.ok) {
     return NextResponse.json(
@@ -20,10 +29,5 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({
-    ok: true,
-    caseId: id,
-    approved: true,
-    approvedAt: result.approvedAt,
-  });
+  return NextResponse.json({ ok: true, caseId: id, rejected: true, reason });
 }

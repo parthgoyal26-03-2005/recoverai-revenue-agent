@@ -22,7 +22,14 @@ export function policyConfigFromCase(
   };
 }
 
-export const TERMINAL_CASE_STATUSES = ["RECOVERED", "FAILED", "STOPPED"];
+export const TERMINAL_CASE_STATUSES = ["RECOVERED", "FAILED", "STOPPED", "REJECTED"];
+
+const PROGRESS_ACTION_TYPES = [
+  "RETRY_PAYMENT",
+  "SCHEDULE_RETRY",
+  "SEND_REMINDER",
+  "OFFER_ASSISTANCE",
+];
 
 export type EvaluateResult = {
   found: boolean;
@@ -165,7 +172,10 @@ export async function executeCaseAction(
       `${requestedAction} is not a valid action for this case.`;
     await store.createAuditLog({
       recoveryCaseId: recoveryCase.id,
-      event: "ACTION_BLOCKED",
+      event:
+        policy.requiresApproval && PROGRESS_ACTION_TYPES.includes(requestedAction)
+          ? "APPROVAL_REQUIRED"
+          : "ACTION_BLOCKED",
       actor: "POLICY_ENGINE",
       metadata: auditMetadata(recoveryCase, {
         action: requestedAction,
@@ -387,12 +397,28 @@ export async function approveCase(
   store: RecoveryStore,
   caseId: string,
   opts?: { now?: Date }
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; approvedAt?: string }> {
   const recoveryCase = await store.getCase(caseId);
   if (!recoveryCase) return { ok: false, error: "Recovery case not found." };
+  if (recoveryCase.merchantRejectedAt) {
+    return { ok: false, error: "Case was rejected by the merchant." };
+  }
   if (recoveryCase.merchantApproved) {
     return { ok: false, error: "Case is already approved." };
   }
+  if (TERMINAL_CASE_STATUSES.includes(recoveryCase.status)) {
+    return {
+      ok: false,
+      error: `Case is ${recoveryCase.status}; approval is no longer possible.`,
+    };
+  }
+  if ((opts?.now ?? new Date()).getTime() > recoveryCase.windowExpiresAt.getTime()) {
+    return {
+      ok: false,
+      error: "Recovery window has expired; approval is no longer possible.",
+    };
+  }
+
   const now = opts?.now ?? new Date();
   await store.updateCase(recoveryCase.id, {
     merchantApproved: true,
@@ -404,6 +430,43 @@ export async function approveCase(
     actor: "MERCHANT",
     metadata: auditMetadata(recoveryCase, {
       approvedAt: now.toISOString(),
+    }),
+  });
+  return { ok: true, approvedAt: now.toISOString() };
+}
+
+export async function rejectCase(
+  store: RecoveryStore,
+  caseId: string,
+  reason: string,
+  opts?: { now?: Date }
+): Promise<{ ok: boolean; error?: string }> {
+  const recoveryCase = await store.getCase(caseId);
+  if (!recoveryCase) return { ok: false, error: "Recovery case not found." };
+  if (recoveryCase.merchantRejectedAt) {
+    return { ok: false, error: "Case was already rejected." };
+  }
+  if (TERMINAL_CASE_STATUSES.includes(recoveryCase.status)) {
+    return {
+      ok: false,
+      error: `Case is ${recoveryCase.status}; rejection is no longer possible.`,
+    };
+  }
+
+  const now = opts?.now ?? new Date();
+  await store.updateCase(recoveryCase.id, {
+    merchantRejectedAt: now,
+    rejectionReason: reason,
+    status: "REJECTED",
+    resolvedAt: now,
+  });
+  await store.createAuditLog({
+    recoveryCaseId: recoveryCase.id,
+    event: "APPROVAL_REJECTED",
+    actor: "MERCHANT",
+    metadata: auditMetadata(recoveryCase, {
+      reason,
+      rejectedAt: now.toISOString(),
     }),
   });
   return { ok: true };

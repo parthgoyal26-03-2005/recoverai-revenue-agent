@@ -39,6 +39,8 @@ export type CaseUpdateData = {
   contactCount?: number;
   merchantApproved?: boolean;
   merchantApprovedAt?: Date;
+  merchantRejectedAt?: Date;
+  rejectionReason?: string | null;
 };
 
 export type AuditLogData = {

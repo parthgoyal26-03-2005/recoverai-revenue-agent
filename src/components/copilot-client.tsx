@@ -24,6 +24,7 @@ export type AnalysisView = {
   latencyMs: number;
   policyAllowedByPolicy: boolean;
   policyReason: string;
+  requiresMerchantApproval: boolean;
 };
 
 const RISK_STYLES: Record<string, string> = {
@@ -82,6 +83,11 @@ export function CopilotClient({ cases, existingAnalyses }: CopilotClientProps) {
           latencyMs: data.latencyMs,
           policyAllowedByPolicy: data.policyValidation.allowedByPolicy,
           policyReason: data.policyValidation.reason,
+          requiresMerchantApproval:
+            data.analysis.recommendedAction === "ESCALATE_TO_MERCHANT" ||
+            data.policyValidation.reason
+              .toLowerCase()
+              .includes("merchant approval"),
         });
         router.refresh();
       }
@@ -224,17 +230,52 @@ export function CopilotClient({ cases, existingAnalyses }: CopilotClientProps) {
 
           <div
             className={`mt-4 rounded-lg p-4 text-sm ${
-              analysis.policyAllowedByPolicy
-                ? "bg-emerald-50 text-emerald-800"
-                : "bg-amber-50 text-amber-800"
+              analysis.requiresMerchantApproval && !analysis.policyAllowedByPolicy
+                ? "bg-amber-50 text-amber-800"
+                : analysis.policyAllowedByPolicy
+                  ? "bg-emerald-50 text-emerald-800"
+                  : "bg-rose-50 text-rose-800"
             }`}
           >
-            <span className="font-semibold">
-              Policy Engine check:{" "}
-              {analysis.policyAllowedByPolicy ? "ALLOWED" : "WOULD BE BLOCKED"}
-            </span>{" "}
-            — {analysis.policyReason} The AI cannot execute actions; only the
-            deterministic recovery engine can, and only when policy allows.
+            {analysis.requiresMerchantApproval && !analysis.policyAllowedByPolicy ? (
+              <>
+                <span className="font-semibold">
+                  Policy permits this action only after merchant approval.
+                </span>{" "}
+                Open the case to review and approve it — nothing will execute until
+                you do.
+              </>
+            ) : (
+              <>
+                <span className="font-semibold">
+                  Policy Engine check:{" "}
+                  {analysis.policyAllowedByPolicy ? "ALLOWED" : "WOULD BE BLOCKED"}
+                </span>{" "}
+                — {analysis.policyReason}.{" "}
+              </>
+            )}
+            The AI cannot execute actions; only the deterministic recovery engine
+            can, and only when policy (and any required approval) allows.
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
+            <span className="rounded-md bg-slate-100 px-2 py-1">AI Recommendation</span>
+            <span aria-hidden>↓</span>
+            <span className="rounded-md bg-slate-100 px-2 py-1">Policy Validation</span>
+            <span aria-hidden>↓</span>
+            <span
+              className={`rounded-md px-2 py-1 ${
+                analysis.requiresMerchantApproval
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-slate-100"
+              }`}
+            >
+              Merchant Approval{analysis.requiresMerchantApproval ? "" : " (not required)"}
+            </span>
+            <span aria-hidden>↓</span>
+            <span className="rounded-md bg-emerald-100 px-2 py-1 text-emerald-800">
+              Execution
+            </span>
           </div>
 
           <p className="mt-3 text-xs text-slate-400">

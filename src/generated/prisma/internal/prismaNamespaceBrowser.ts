@@ -60,7 +60,8 @@ export const ModelName = {
   RecoveryIntervention: 'RecoveryIntervention',
   RecoveryPolicy: 'RecoveryPolicy',
   AIDecision: 'AIDecision',
-  AuditLog: 'AuditLog'
+  AuditLog: 'AuditLog',
+  RazorpayWebhookEvent: 'RazorpayWebhookEvent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -168,6 +169,8 @@ export const RecoveryCaseScalarFieldEnum = {
   contactCount: 'contactCount',
   merchantApproved: 'merchantApproved',
   merchantApprovedAt: 'merchantApprovedAt',
+  merchantRejectedAt: 'merchantRejectedAt',
+  rejectionReason: 'rejectionReason',
   windowExpiresAt: 'windowExpiresAt',
   transactionId: 'transactionId',
   checkoutSessionId: 'checkoutSessionId',
@@ -239,6 +242,19 @@ export const AuditLogScalarFieldEnum = {
 } as const
 
 export type AuditLogScalarFieldEnum = (typeof AuditLogScalarFieldEnum)[keyof typeof AuditLogScalarFieldEnum]
+
+
+export const RazorpayWebhookEventScalarFieldEnum = {
+  id: 'id',
+  eventId: 'eventId',
+  eventType: 'eventType',
+  receivedAt: 'receivedAt',
+  processedAt: 'processedAt',
+  status: 'status',
+  errorMessage: 'errorMessage'
+} as const
+
+export type RazorpayWebhookEventScalarFieldEnum = (typeof RazorpayWebhookEventScalarFieldEnum)[keyof typeof RazorpayWebhookEventScalarFieldEnum]
 
 
 export const SortOrder = {

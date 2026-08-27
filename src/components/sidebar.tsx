@@ -60,6 +60,17 @@ const NAV_ITEMS = [
       />
     ),
   },
+  {
+    href: "/settings/integrations",
+    label: "Integrations",
+    icon: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-4.872a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.34 8.374"
+      />
+    ),
+  },
 ];
 
 export function Sidebar() {

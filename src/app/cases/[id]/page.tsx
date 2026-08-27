@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { StatusBadge } from "@/components/status-badge";
 import { CaseActions } from "@/components/case-actions";
 import { AnalyzeCaseButton } from "@/components/analyze-case-button";
+import { ApprovalActions } from "@/components/approval-actions";
 import { formatINR, timeAgo } from "@/lib/domain/format";
 import { evaluatePolicy } from "@/lib/policy/engine";
 import { policyConfigFromCase } from "@/lib/recovery/orchestrator";
@@ -159,7 +160,9 @@ export default async function CaseDetailPage({
   );
 
   const allowedActions = evaluation.allowedActions.filter(
-    (a) => a !== "STOP_RECOVERY" || evaluation.allowedActions.length === 1
+    (a) =>
+      (a !== "STOP_RECOVERY" || evaluation.allowedActions.length === 1) &&
+      !(a === "ESCALATE_TO_MERCHANT" && recoveryCase.status === "ESCALATED")
   );
   const blocked = evaluation.permissions
     .filter(
@@ -181,6 +184,49 @@ export default async function CaseDetailPage({
 
   const dueMinutes = scheduledDueMinutes(interventions);
 
+  const awaitingApproval =
+    recoveryCase.status === "ESCALATED" &&
+    !recoveryCase.merchantApproved &&
+    !recoveryCase.merchantRejectedAt;
+
+  const progressStages = [
+    {
+      label: "AI Analyzed",
+      done: latestDecision != null,
+    },
+    {
+      label: "Approval Required",
+      done: awaitingApproval || recoveryCase.merchantApproved,
+    },
+    {
+      label: recoveryCase.merchantRejectedAt ? "Rejected" : "Merchant Approved",
+      done: recoveryCase.merchantApproved || !!recoveryCase.merchantRejectedAt,
+      tone: recoveryCase.merchantRejectedAt ? ("failed" as const) : undefined,
+    },
+    {
+      label: "Ready to Execute",
+      done:
+        recoveryCase.merchantApproved &&
+        evaluation.eligible,
+    },
+    {
+      label: "Executed",
+      done: interventions.some((iv) => iv.executedAt != null),
+    },
+    {
+      label:
+        ["RECOVERED", "FAILED", "STOPPED", "REJECTED"].includes(recoveryCase.status)
+          ? humanize(recoveryCase.status)
+          : "Outcome",
+      done: ["RECOVERED", "FAILED", "STOPPED", "REJECTED"].includes(
+        recoveryCase.status
+      ),
+      tone: (["FAILED", "STOPPED", "REJECTED"].includes(recoveryCase.status)
+        ? "failed"
+        : "success") as "failed" | "success",
+    },
+  ];
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
@@ -198,6 +244,111 @@ export default async function CaseDetailPage({
           <StatusBadge value={recoveryCase.priority} />
         </div>
       </div>
+
+      {(awaitingApproval || recoveryCase.merchantApproved || recoveryCase.merchantRejectedAt) && (
+        <section
+          className={`rounded-xl border-2 p-5 shadow-sm ${
+            recoveryCase.merchantRejectedAt
+              ? "border-rose-300 bg-rose-50"
+              : recoveryCase.merchantApproved
+                ? "border-emerald-300 bg-emerald-50"
+                : "border-amber-300 bg-amber-50"
+          }`}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p
+                className={`text-sm font-bold tracking-wide uppercase ${
+                  recoveryCase.merchantRejectedAt
+                    ? "text-rose-800"
+                    : recoveryCase.merchantApproved
+                      ? "text-emerald-800"
+                      : "text-amber-800"
+                }`}
+              >
+                {recoveryCase.merchantRejectedAt
+                  ? "Recovery Rejected By Merchant"
+                  : recoveryCase.merchantApproved
+                    ? "Merchant Approved · Ready to Execute"
+                    : "Merchant Approval Required"}
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {formatINR(recoveryCase.amountAtRisk)}{" "}
+                <span className="text-sm font-normal text-slate-500">at risk</span>
+              </p>
+              <p className="text-xs text-slate-500">
+                Approval threshold: {formatINR(config.approvalThresholdPaise)} · this
+                case exceeds it, so money-moving actions wait for your decision.
+              </p>
+            </div>
+            <div className="min-w-[260px] flex-1 rounded-lg bg-white p-3 shadow-sm">
+              {latestDecision ? (
+                <dl className="space-y-1 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-400">Recommended action</dt>
+                    <dd className="font-mono font-semibold text-slate-900">
+                      {latestDecision.recommendedAction}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-400">Confidence</dt>
+                    <dd className="font-semibold text-slate-900">
+                      {Math.round(latestDecision.confidence * 100)}%
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-400">Diagnosis</dt>
+                    <dd className="font-mono text-xs text-slate-700">
+                      {latestDecision.diagnosis}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-400">Reason</dt>
+                    <dd className="text-xs text-slate-600">{latestDecision.reasoning}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  Run an AI analysis to see the recommendation before approving.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <ApprovalActions
+              caseId={recoveryCase.id}
+              requiresApproval={awaitingApproval}
+              approved={recoveryCase.merchantApproved}
+              approvedAt={recoveryCase.merchantApprovedAt?.toISOString() ?? null}
+              rejected={!!recoveryCase.merchantRejectedAt}
+              rejectionReason={recoveryCase.rejectionReason}
+            />
+          </div>
+        </section>
+      )}
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <ol className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs">
+          {progressStages.map((stage, i) => (
+            <li key={stage.label} className="flex items-center gap-2">
+              {i > 0 && <span aria-hidden className="text-slate-300">→</span>}
+              <span
+                className={`rounded-full px-2.5 py-1 font-medium ${
+                  stage.done
+                    ? stage.tone === "failed"
+                      ? "bg-rose-600 text-white"
+                      : stage.tone === "success"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-emerald-100 text-emerald-800"
+                    : "bg-slate-100 text-slate-400"
+                }`}
+              >
+                {stage.label}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
