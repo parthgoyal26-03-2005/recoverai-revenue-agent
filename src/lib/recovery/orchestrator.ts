@@ -1,6 +1,8 @@
 import { DEFAULT_POLICY, type ActionType, type PolicyConfig, type PolicyEvaluation } from "@/lib/domain/types";
 import { evaluatePolicy } from "@/lib/policy/engine";
 import { simulateOutcome } from "@/lib/simulation/outcomes";
+import { getRecoveryProvider } from "@/lib/recovery/providers";
+import type { RecoveryExecutionResult } from "@/lib/recovery/providers/types";
 import type { Prisma } from "@/generated/prisma/client";
 import type {
   CaseUpdateData,
@@ -95,7 +97,7 @@ export type ExecuteOutcome =
       action: ActionType;
       caseStatus: string;
       recoveredAmountPaise: number;
-      outcome: ReturnType<typeof simulateOutcome>;
+      outcome: RecoveryExecutionResult;
       messages: string[];
       policy: PolicyEvaluation;
     }
@@ -199,33 +201,70 @@ export async function executeCaseAction(
     ? recoveryCase.retryCount + 1
     : recoveryCase.contactCount + 1;
 
-  const outcome = simulateOutcome({
-    caseId: recoveryCase.id,
-    scenario: recoveryCase.scenario,
+  const provider = getRecoveryProvider();
+  const isRazorpayRetry =
+    provider.name === "razorpay" &&
+    requestedAction === "RETRY_PAYMENT" &&
+    recoveryCase.scenario === "FAILED_PAYMENT";
+
+  let created: { id: string } | null = null;
+  if (isRazorpayRetry) {
+    created = await store.createIntervention({
+      recoveryCaseId: recoveryCase.id,
+      action: requestedAction,
+      status: "PENDING",
+      result: "PENDING",
+      scheduledAt: null,
+      executedAt: null,
+      recoveredAmount: 0,
+      notes: null,
+      provider: "razorpay",
+    });
+  }
+
+  const outcome = await provider.executeAction({
+    recoveryCase,
     action: requestedAction,
     attemptNumber,
-    amountAtRiskPaise: recoveryCase.amountAtRisk,
     now,
     rng: opts?.rng,
+    interventionId: isRazorpayRetry ? created!.id : undefined,
   });
 
-  const executedNow =
-    outcome.status === "SCHEDULED" ? null : now;
-  const intervention: NewInterventionData = {
-    recoveryCaseId: recoveryCase.id,
-    action: requestedAction,
-    status: outcome.status,
-    result:
-      outcome.status === "SCHEDULED"
-        ? null
-        : (outcome.result as NewInterventionData["result"]),
-    scheduledAt: outcome.scheduledAt ?? null,
-    executedAt: executedNow,
-    recoveredAmount: outcome.recoveredAmountPaise,
-    notes: outcome.notes,
-  };
-
-  const created = await store.createIntervention(intervention);
+  if (isRazorpayRetry) {
+    const interStatus =
+      outcome.status === "PENDING"
+        ? "AWAITING_PAYMENT"
+        : outcome.status === "SCHEDULED"
+          ? "SCHEDULED"
+          : "COMPLETED";
+    await store.updateIntervention(created!.id, {
+      status: interStatus,
+      result: outcome.result,
+      executedAt: outcome.status === "SCHEDULED" ? null : now,
+      recoveredAmount: 0,
+      notes: outcome.notes,
+      provider: "razorpay",
+      providerReference: outcome.paymentLink?.id ?? null,
+      paymentLinkUrl: outcome.paymentLink?.url ?? null,
+    });
+  } else {
+    const executedNow = outcome.status === "SCHEDULED" ? null : now;
+    const intervention: NewInterventionData = {
+      recoveryCaseId: recoveryCase.id,
+      action: requestedAction,
+      status: outcome.status,
+      result:
+        outcome.status === "SCHEDULED"
+          ? null
+          : (outcome.result as NewInterventionData["result"]),
+      scheduledAt: outcome.scheduledAt ?? null,
+      executedAt: executedNow,
+      recoveredAmount: outcome.recoveredAmountPaise,
+      notes: outcome.notes,
+    };
+    created = await store.createIntervention(intervention);
+  }
 
   await store.createAuditLog({
     recoveryCaseId: recoveryCase.id,
@@ -234,7 +273,7 @@ export async function executeCaseAction(
     metadata: auditMetadata(recoveryCase, {
       action: requestedAction,
       attemptNumber,
-      interventionId: created.id,
+      interventionId: created!.id,
       notes: outcome.notes,
     }),
   });
@@ -250,6 +289,22 @@ export async function executeCaseAction(
     }),
   });
 
+  if (isRazorpayRetry && outcome.paymentLink) {
+    await store.createAuditLog({
+      recoveryCaseId: recoveryCase.id,
+      event: "RECOVERY_PAYMENT_CREATED",
+      actor: "SYSTEM",
+      metadata: auditMetadata(recoveryCase, {
+        action: requestedAction,
+        attemptNumber,
+        interventionId: created!.id,
+        paymentLinkId: outcome.paymentLink.id,
+        paymentLinkUrl: outcome.paymentLink.url,
+        provider: "razorpay",
+      }),
+    });
+  }
+
   let retryCount = recoveryCase.retryCount;
   let contactCount = recoveryCase.contactCount;
   if (isRetryAction) retryCount += 1;
@@ -263,7 +318,9 @@ export async function executeCaseAction(
   let status: CaseUpdateData["status"];
   let resolvedAt: Date | null = null;
 
-  if (requestedAction === "ESCALATE_TO_MERCHANT") {
+  if (outcome.status === "PENDING") {
+    status = "IN_PROGRESS";
+  } else if (requestedAction === "ESCALATE_TO_MERCHANT") {
     status = "ESCALATED";
     resolvedAt = null;
   } else if (requestedAction === "STOP_RECOVERY") {
@@ -353,6 +410,12 @@ export async function executeCaseAction(
       }),
     });
     messages.push("Recovery stopped: limits reached.");
+  }
+
+  if (isRazorpayRetry && outcome.paymentLink) {
+    messages.push(
+      `Payment link created. Share ${outcome.paymentLink.url} with the customer to complete payment. The case is now awaiting customer payment.`
+    );
   }
 
   if (outcome.status === "COMPLETED" && outcome.result !== "SUCCESS" && status !== "STOPPED") {

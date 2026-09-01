@@ -44,6 +44,9 @@ export type RecoveryInterventionMinAggregateOutputType = {
   executedAt: Date | null
   recoveredAmount: number | null
   notes: string | null
+  provider: string | null
+  providerReference: string | null
+  paymentLinkUrl: string | null
   createdAt: Date | null
 }
 
@@ -57,6 +60,9 @@ export type RecoveryInterventionMaxAggregateOutputType = {
   executedAt: Date | null
   recoveredAmount: number | null
   notes: string | null
+  provider: string | null
+  providerReference: string | null
+  paymentLinkUrl: string | null
   createdAt: Date | null
 }
 
@@ -70,6 +76,9 @@ export type RecoveryInterventionCountAggregateOutputType = {
   executedAt: number
   recoveredAmount: number
   notes: number
+  provider: number
+  providerReference: number
+  paymentLinkUrl: number
   createdAt: number
   _all: number
 }
@@ -93,6 +102,9 @@ export type RecoveryInterventionMinAggregateInputType = {
   executedAt?: true
   recoveredAmount?: true
   notes?: true
+  provider?: true
+  providerReference?: true
+  paymentLinkUrl?: true
   createdAt?: true
 }
 
@@ -106,6 +118,9 @@ export type RecoveryInterventionMaxAggregateInputType = {
   executedAt?: true
   recoveredAmount?: true
   notes?: true
+  provider?: true
+  providerReference?: true
+  paymentLinkUrl?: true
   createdAt?: true
 }
 
@@ -119,6 +134,9 @@ export type RecoveryInterventionCountAggregateInputType = {
   executedAt?: true
   recoveredAmount?: true
   notes?: true
+  provider?: true
+  providerReference?: true
+  paymentLinkUrl?: true
   createdAt?: true
   _all?: true
 }
@@ -219,6 +237,9 @@ export type RecoveryInterventionGroupByOutputType = {
   executedAt: Date | null
   recoveredAmount: number
   notes: string | null
+  provider: string | null
+  providerReference: string | null
+  paymentLinkUrl: string | null
   createdAt: Date
   _count: RecoveryInterventionCountAggregateOutputType | null
   _avg: RecoveryInterventionAvgAggregateOutputType | null
@@ -255,6 +276,9 @@ export type RecoveryInterventionWhereInput = {
   executedAt?: Prisma.DateTimeNullableFilter<"RecoveryIntervention"> | Date | string | null
   recoveredAmount?: Prisma.IntFilter<"RecoveryIntervention"> | number
   notes?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
+  provider?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
+  providerReference?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
+  paymentLinkUrl?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
   createdAt?: Prisma.DateTimeFilter<"RecoveryIntervention"> | Date | string
   recoveryCase?: Prisma.XOR<Prisma.RecoveryCaseScalarRelationFilter, Prisma.RecoveryCaseWhereInput>
 }
@@ -269,6 +293,9 @@ export type RecoveryInterventionOrderByWithRelationInput = {
   executedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   recoveredAmount?: Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
+  provider?: Prisma.SortOrderInput | Prisma.SortOrder
+  providerReference?: Prisma.SortOrderInput | Prisma.SortOrder
+  paymentLinkUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   recoveryCase?: Prisma.RecoveryCaseOrderByWithRelationInput
 }
@@ -286,6 +313,9 @@ export type RecoveryInterventionWhereUniqueInput = Prisma.AtLeast<{
   executedAt?: Prisma.DateTimeNullableFilter<"RecoveryIntervention"> | Date | string | null
   recoveredAmount?: Prisma.IntFilter<"RecoveryIntervention"> | number
   notes?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
+  provider?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
+  providerReference?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
+  paymentLinkUrl?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
   createdAt?: Prisma.DateTimeFilter<"RecoveryIntervention"> | Date | string
   recoveryCase?: Prisma.XOR<Prisma.RecoveryCaseScalarRelationFilter, Prisma.RecoveryCaseWhereInput>
 }, "id">
@@ -300,6 +330,9 @@ export type RecoveryInterventionOrderByWithAggregationInput = {
   executedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   recoveredAmount?: Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
+  provider?: Prisma.SortOrderInput | Prisma.SortOrder
+  providerReference?: Prisma.SortOrderInput | Prisma.SortOrder
+  paymentLinkUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.RecoveryInterventionCountOrderByAggregateInput
   _avg?: Prisma.RecoveryInterventionAvgOrderByAggregateInput
@@ -321,6 +354,9 @@ export type RecoveryInterventionScalarWhereWithAggregatesInput = {
   executedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"RecoveryIntervention"> | Date | string | null
   recoveredAmount?: Prisma.IntWithAggregatesFilter<"RecoveryIntervention"> | number
   notes?: Prisma.StringNullableWithAggregatesFilter<"RecoveryIntervention"> | string | null
+  provider?: Prisma.StringNullableWithAggregatesFilter<"RecoveryIntervention"> | string | null
+  providerReference?: Prisma.StringNullableWithAggregatesFilter<"RecoveryIntervention"> | string | null
+  paymentLinkUrl?: Prisma.StringNullableWithAggregatesFilter<"RecoveryIntervention"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"RecoveryIntervention"> | Date | string
 }
 
@@ -333,6 +369,9 @@ export type RecoveryInterventionCreateInput = {
   executedAt?: Date | string | null
   recoveredAmount?: number
   notes?: string | null
+  provider?: string | null
+  providerReference?: string | null
+  paymentLinkUrl?: string | null
   createdAt?: Date | string
   recoveryCase: Prisma.RecoveryCaseCreateNestedOneWithoutInterventionsInput
 }
@@ -347,6 +386,9 @@ export type RecoveryInterventionUncheckedCreateInput = {
   executedAt?: Date | string | null
   recoveredAmount?: number
   notes?: string | null
+  provider?: string | null
+  providerReference?: string | null
+  paymentLinkUrl?: string | null
   createdAt?: Date | string
 }
 
@@ -359,6 +401,9 @@ export type RecoveryInterventionUpdateInput = {
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveredAmount?: Prisma.IntFieldUpdateOperationsInput | number
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentLinkUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   recoveryCase?: Prisma.RecoveryCaseUpdateOneRequiredWithoutInterventionsNestedInput
 }
@@ -373,6 +418,9 @@ export type RecoveryInterventionUncheckedUpdateInput = {
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveredAmount?: Prisma.IntFieldUpdateOperationsInput | number
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentLinkUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -386,6 +434,9 @@ export type RecoveryInterventionCreateManyInput = {
   executedAt?: Date | string | null
   recoveredAmount?: number
   notes?: string | null
+  provider?: string | null
+  providerReference?: string | null
+  paymentLinkUrl?: string | null
   createdAt?: Date | string
 }
 
@@ -398,6 +449,9 @@ export type RecoveryInterventionUpdateManyMutationInput = {
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveredAmount?: Prisma.IntFieldUpdateOperationsInput | number
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentLinkUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -411,6 +465,9 @@ export type RecoveryInterventionUncheckedUpdateManyInput = {
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveredAmount?: Prisma.IntFieldUpdateOperationsInput | number
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentLinkUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -434,6 +491,9 @@ export type RecoveryInterventionCountOrderByAggregateInput = {
   executedAt?: Prisma.SortOrder
   recoveredAmount?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  provider?: Prisma.SortOrder
+  providerReference?: Prisma.SortOrder
+  paymentLinkUrl?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -451,6 +511,9 @@ export type RecoveryInterventionMaxOrderByAggregateInput = {
   executedAt?: Prisma.SortOrder
   recoveredAmount?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  provider?: Prisma.SortOrder
+  providerReference?: Prisma.SortOrder
+  paymentLinkUrl?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -464,6 +527,9 @@ export type RecoveryInterventionMinOrderByAggregateInput = {
   executedAt?: Prisma.SortOrder
   recoveredAmount?: Prisma.SortOrder
   notes?: Prisma.SortOrder
+  provider?: Prisma.SortOrder
+  providerReference?: Prisma.SortOrder
+  paymentLinkUrl?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -534,6 +600,9 @@ export type RecoveryInterventionCreateWithoutRecoveryCaseInput = {
   executedAt?: Date | string | null
   recoveredAmount?: number
   notes?: string | null
+  provider?: string | null
+  providerReference?: string | null
+  paymentLinkUrl?: string | null
   createdAt?: Date | string
 }
 
@@ -546,6 +615,9 @@ export type RecoveryInterventionUncheckedCreateWithoutRecoveryCaseInput = {
   executedAt?: Date | string | null
   recoveredAmount?: number
   notes?: string | null
+  provider?: string | null
+  providerReference?: string | null
+  paymentLinkUrl?: string | null
   createdAt?: Date | string
 }
 
@@ -588,6 +660,9 @@ export type RecoveryInterventionScalarWhereInput = {
   executedAt?: Prisma.DateTimeNullableFilter<"RecoveryIntervention"> | Date | string | null
   recoveredAmount?: Prisma.IntFilter<"RecoveryIntervention"> | number
   notes?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
+  provider?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
+  providerReference?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
+  paymentLinkUrl?: Prisma.StringNullableFilter<"RecoveryIntervention"> | string | null
   createdAt?: Prisma.DateTimeFilter<"RecoveryIntervention"> | Date | string
 }
 
@@ -600,6 +675,9 @@ export type RecoveryInterventionCreateManyRecoveryCaseInput = {
   executedAt?: Date | string | null
   recoveredAmount?: number
   notes?: string | null
+  provider?: string | null
+  providerReference?: string | null
+  paymentLinkUrl?: string | null
   createdAt?: Date | string
 }
 
@@ -612,6 +690,9 @@ export type RecoveryInterventionUpdateWithoutRecoveryCaseInput = {
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveredAmount?: Prisma.IntFieldUpdateOperationsInput | number
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentLinkUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -624,6 +705,9 @@ export type RecoveryInterventionUncheckedUpdateWithoutRecoveryCaseInput = {
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveredAmount?: Prisma.IntFieldUpdateOperationsInput | number
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentLinkUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -636,6 +720,9 @@ export type RecoveryInterventionUncheckedUpdateManyWithoutRecoveryCaseInput = {
   executedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveredAmount?: Prisma.IntFieldUpdateOperationsInput | number
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentLinkUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -651,6 +738,9 @@ export type RecoveryInterventionSelect<ExtArgs extends runtime.Types.Extensions.
   executedAt?: boolean
   recoveredAmount?: boolean
   notes?: boolean
+  provider?: boolean
+  providerReference?: boolean
+  paymentLinkUrl?: boolean
   createdAt?: boolean
   recoveryCase?: boolean | Prisma.RecoveryCaseDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recoveryIntervention"]>
@@ -665,6 +755,9 @@ export type RecoveryInterventionSelectCreateManyAndReturn<ExtArgs extends runtim
   executedAt?: boolean
   recoveredAmount?: boolean
   notes?: boolean
+  provider?: boolean
+  providerReference?: boolean
+  paymentLinkUrl?: boolean
   createdAt?: boolean
   recoveryCase?: boolean | Prisma.RecoveryCaseDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recoveryIntervention"]>
@@ -679,6 +772,9 @@ export type RecoveryInterventionSelectUpdateManyAndReturn<ExtArgs extends runtim
   executedAt?: boolean
   recoveredAmount?: boolean
   notes?: boolean
+  provider?: boolean
+  providerReference?: boolean
+  paymentLinkUrl?: boolean
   createdAt?: boolean
   recoveryCase?: boolean | Prisma.RecoveryCaseDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recoveryIntervention"]>
@@ -693,10 +789,13 @@ export type RecoveryInterventionSelectScalar = {
   executedAt?: boolean
   recoveredAmount?: boolean
   notes?: boolean
+  provider?: boolean
+  providerReference?: boolean
+  paymentLinkUrl?: boolean
   createdAt?: boolean
 }
 
-export type RecoveryInterventionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recoveryCaseId" | "action" | "status" | "result" | "scheduledAt" | "executedAt" | "recoveredAmount" | "notes" | "createdAt", ExtArgs["result"]["recoveryIntervention"]>
+export type RecoveryInterventionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "recoveryCaseId" | "action" | "status" | "result" | "scheduledAt" | "executedAt" | "recoveredAmount" | "notes" | "provider" | "providerReference" | "paymentLinkUrl" | "createdAt", ExtArgs["result"]["recoveryIntervention"]>
 export type RecoveryInterventionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   recoveryCase?: boolean | Prisma.RecoveryCaseDefaultArgs<ExtArgs>
 }
@@ -722,6 +821,9 @@ export type $RecoveryInterventionPayload<ExtArgs extends runtime.Types.Extension
     executedAt: Date | null
     recoveredAmount: number
     notes: string | null
+    provider: string | null
+    providerReference: string | null
+    paymentLinkUrl: string | null
     createdAt: Date
   }, ExtArgs["result"]["recoveryIntervention"]>
   composites: {}
@@ -1156,6 +1258,9 @@ export interface RecoveryInterventionFieldRefs {
   readonly executedAt: Prisma.FieldRef<"RecoveryIntervention", 'DateTime'>
   readonly recoveredAmount: Prisma.FieldRef<"RecoveryIntervention", 'Int'>
   readonly notes: Prisma.FieldRef<"RecoveryIntervention", 'String'>
+  readonly provider: Prisma.FieldRef<"RecoveryIntervention", 'String'>
+  readonly providerReference: Prisma.FieldRef<"RecoveryIntervention", 'String'>
+  readonly paymentLinkUrl: Prisma.FieldRef<"RecoveryIntervention", 'String'>
   readonly createdAt: Prisma.FieldRef<"RecoveryIntervention", 'DateTime'>
 }
     

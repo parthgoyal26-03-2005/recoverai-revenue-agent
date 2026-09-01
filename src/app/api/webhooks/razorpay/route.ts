@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getRazorpayConfig } from "@/lib/razorpay/config";
 import { verifyWebhookSignature } from "@/lib/razorpay/webhook";
-import { handlePaymentFailed } from "@/lib/razorpay/handler";
+import { handlePaymentFailed, handlePaymentLinkPaid } from "@/lib/razorpay/handler";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -109,6 +109,60 @@ export async function POST(request: Request) {
       ok: true,
       caseId: result.caseId,
       transactionId: result.transactionId,
+    });
+  }
+
+  if (eventType === "payment_link.paid") {
+    const paymentLinkWrap = (payload?.payment_link ?? null) as Record<string, unknown> | null;
+    const paymentLinkEntity = (paymentLinkWrap?.entity ?? null) as Record<string, unknown> | null;
+
+    if (!paymentLinkEntity || typeof paymentLinkEntity !== "object") {
+      return NextResponse.json(
+        { error: "Missing payment_link entity in payload." },
+        { status: 400 }
+      );
+    }
+    if (!paymentEntityRaw || typeof paymentEntityRaw !== "object") {
+      return NextResponse.json(
+        { error: "Missing payment entity in payload." },
+        { status: 400 }
+      );
+    }
+
+    const paymentLinkId =
+      typeof paymentLinkEntity.id === "string" ? paymentLinkEntity.id : null;
+    const paymentId =
+      typeof paymentEntityRaw.id === "string" ? paymentEntityRaw.id : null;
+
+    if (!paymentLinkId || !paymentId) {
+      return NextResponse.json(
+        { error: "Missing payment link or payment ID." },
+        { status: 400 }
+      );
+    }
+
+    const result = await handlePaymentLinkPaid(
+      prisma,
+      config.merchantId,
+      paymentLinkId,
+      paymentEntityRaw as Parameters<typeof handlePaymentLinkPaid>[3],
+      dedupeKey
+    );
+
+    if (!result.ok) {
+      await prisma.razorpayWebhookEvent.update({
+        where: { eventId: dedupeKey },
+        data: { status: "FAILED", errorMessage: result.error },
+      });
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.status }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      caseId: result.caseId,
     });
   }
 

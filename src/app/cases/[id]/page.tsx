@@ -182,6 +182,15 @@ export default async function CaseDetailPage({
     .reverse()
     .find((iv) => iv.executedAt != null);
 
+  const pendingPaymentLink = [...interventions]
+    .reverse()
+    .find(
+      (iv) =>
+        iv.provider === "razorpay" &&
+        iv.status === "AWAITING_PAYMENT" &&
+        iv.paymentLinkUrl
+    );
+
   const dueMinutes = scheduledDueMinutes(interventions);
 
   const awaitingApproval =
@@ -494,6 +503,36 @@ export default async function CaseDetailPage({
               />
             </div>
           </div>
+
+          {pendingPaymentLink && recoveryCase.status === "IN_PROGRESS" && (
+            <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold tracking-wide text-emerald-800 uppercase">
+                    Awaiting Customer Payment
+                  </p>
+                  <p className="mt-1 text-sm text-emerald-800">
+                    A Razorpay Test Mode payment link was created for{" "}
+                    {formatINR(recoveryCase.amountAtRisk)}. The case is marked
+                    Recovered automatically once the customer pays.
+                  </p>
+                  {pendingPaymentLink.notes && (
+                    <p className="mt-1 text-xs text-emerald-700">
+                      {pendingPaymentLink.notes}
+                    </p>
+                  )}
+                </div>
+                <a
+                  href={pendingPaymentLink.paymentLinkUrl!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  Open Payment Link ↗
+                </a>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <SectionHeading step={5} title="Action & Result" />

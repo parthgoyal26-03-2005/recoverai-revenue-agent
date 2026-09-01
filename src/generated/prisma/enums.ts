@@ -90,7 +90,8 @@ export const InterventionStatus = {
   SCHEDULED: 'SCHEDULED',
   COMPLETED: 'COMPLETED',
   SKIPPED: 'SKIPPED',
-  AWAITING_APPROVAL: 'AWAITING_APPROVAL'
+  AWAITING_APPROVAL: 'AWAITING_APPROVAL',
+  AWAITING_PAYMENT: 'AWAITING_PAYMENT'
 } as const
 
 export type InterventionStatus = (typeof InterventionStatus)[keyof typeof InterventionStatus]
@@ -101,7 +102,8 @@ export const InterventionResult = {
   FAILURE: 'FAILURE',
   NO_RESPONSE: 'NO_RESPONSE',
   APPROVAL_PENDING: 'APPROVAL_PENDING',
-  BLOCKED_BY_POLICY: 'BLOCKED_BY_POLICY'
+  BLOCKED_BY_POLICY: 'BLOCKED_BY_POLICY',
+  PENDING: 'PENDING'
 } as const
 
 export type InterventionResult = (typeof InterventionResult)[keyof typeof InterventionResult]

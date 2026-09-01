@@ -1392,6 +1392,9 @@ export const RecoveryInterventionScalarFieldEnum = {
   executedAt: 'executedAt',
   recoveredAmount: 'recoveredAmount',
   notes: 'notes',
+  provider: 'provider',
+  providerReference: 'providerReference',
+  paymentLinkUrl: 'paymentLinkUrl',
   createdAt: 'createdAt'
 } as const
 

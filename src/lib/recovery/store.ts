@@ -30,6 +30,9 @@ export type NewInterventionData = {
   executedAt: Date | null;
   recoveredAmount: number;
   notes: string | null;
+  provider?: string | null;
+  providerReference?: string | null;
+  paymentLinkUrl?: string | null;
 };
 
 export type CaseUpdateData = {
