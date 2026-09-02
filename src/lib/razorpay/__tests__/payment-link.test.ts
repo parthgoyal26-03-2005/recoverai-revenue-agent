@@ -108,7 +108,7 @@ describe("handlePaymentLinkPaid (Phase 2 integration)", () => {
     const result = await handlePaymentLinkPaid(
       prisma,
       merchantId,
-      iv.providerReference,
+      iv.providerReference!,
       payment,
       `evt_rp_test1_${Date.now()}`
     );
@@ -153,7 +153,7 @@ describe("handlePaymentLinkPaid (Phase 2 integration)", () => {
     const result = await handlePaymentLinkPaid(
       prisma,
       merchantId,
-      iv.providerReference,
+      iv.providerReference!,
       payment,
       `evt_mismatch_${Date.now()}`
     );
@@ -187,7 +187,7 @@ describe("handlePaymentLinkPaid (Phase 2 integration)", () => {
     const result = await handlePaymentLinkPaid(
       prisma,
       merchantId,
-      iv.providerReference,
+      iv.providerReference!,
       payment,
       `evt_cur_${Date.now()}`
     );
@@ -207,12 +207,12 @@ describe("handlePaymentLinkPaid (Phase 2 integration)", () => {
     const p2 = makePayment(`pay_idem_b_${Date.now()}`, 100_000);
 
     const r1 = await handlePaymentLinkPaid(
-      prisma, merchantId, iv.providerReference, p1, `evt_idem_a_${Date.now()}`
+      prisma, merchantId, iv.providerReference!, p1, `evt_idem_a_${Date.now()}`
     );
     expect(r1.ok).toBe(true);
 
     const r2 = await handlePaymentLinkPaid(
-      prisma, merchantId, iv.providerReference, p2, `evt_idem_b_${Date.now()}`
+      prisma, merchantId, iv.providerReference!, p2, `evt_idem_b_${Date.now()}`
     );
     expect(r2.ok).toBe(true);
     expect(r2.caseId).toBe(kase.id);

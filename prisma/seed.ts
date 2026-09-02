@@ -61,6 +61,12 @@ type CaseSpec = {
 async function main() {
   console.log("Seeding RecoverAI data...");
 
+  await prisma.$executeRaw`UPDATE "RecoveryCase" SET "transactionId" = NULL WHERE "transactionId" IS NOT NULL`;
+  await prisma.$executeRaw`UPDATE "Transaction" SET "recoveryCaseId" = NULL WHERE "recoveryCaseId" IS NOT NULL`;
+  await prisma.$executeRaw`UPDATE "RecoveryCase" SET "checkoutSessionId" = NULL WHERE "checkoutSessionId" IS NOT NULL`;
+  await prisma.$executeRaw`UPDATE "RecoveryCase" SET "subscriptionId" = NULL WHERE "subscriptionId" IS NOT NULL`;
+
+  await prisma.razorpayWebhookEvent.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.aIDecision.deleteMany();
   await prisma.recoveryIntervention.deleteMany();
@@ -74,6 +80,7 @@ async function main() {
 
   const merchant = await prisma.merchant.create({
     data: {
+      id: process.env.RAZORPAY_MERCHANT_ID || undefined,
       name: "Acme Retail Pvt Ltd",
       email: "ops@acmeretail.example.com",
     },

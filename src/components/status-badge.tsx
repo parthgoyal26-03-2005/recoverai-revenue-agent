@@ -6,6 +6,7 @@ const BADGE_STYLES: Record<string, string> = {
   FAILED: "bg-rose-100 text-rose-700",
   ESCALATED: "bg-amber-100 text-amber-700",
   STOPPED: "bg-slate-200 text-slate-600",
+  REJECTED: "bg-rose-100 text-rose-800",
   LOW: "bg-slate-100 text-slate-600",
   MEDIUM: "bg-sky-100 text-sky-700",
   HIGH: "bg-amber-100 text-amber-700",

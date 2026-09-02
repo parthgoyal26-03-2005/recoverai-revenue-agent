@@ -42,7 +42,7 @@ export default async function AuditPage() {
                 <p className="truncate text-xs text-slate-400">
                   Case{" "}
                   <Link
-                    href="/cases"
+                    href={`/cases/${log.recoveryCaseId}`}
                     className="font-mono hover:text-emerald-700"
                   >
                     {log.recoveryCaseId.slice(-8)}

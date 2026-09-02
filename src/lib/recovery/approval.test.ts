@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import {
   approveCase,
   executeCaseAction,
   rejectCase,
 } from "@/lib/recovery/orchestrator";
+import { resetRecoveryProviderCache } from "@/lib/recovery/providers";
 import { RecoveryTestStore } from "@/lib/recovery/test-store";
 import type {
   CaseWithRelations,
@@ -64,6 +65,10 @@ class FakeCtx {
 }
 
 describe("merchant approval workflow", () => {
+  const origProvider = process.env.PAYMENT_PROVIDER;
+  beforeAll(() => { process.env.PAYMENT_PROVIDER = "simulation"; resetRecoveryProviderCache(); });
+  afterAll(() => { process.env.PAYMENT_PROVIDER = origProvider; resetRecoveryProviderCache(); });
+
   it("1. high-value case requires approval before any money-moving action", async () => {
     const store = new RecoveryTestStore(makeApprovalCase());
 

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { executeCaseAction, evaluateCase } from "@/lib/recovery/orchestrator";
+import { resetRecoveryProviderCache } from "@/lib/recovery/providers";
 import type {
   AuditLogData,
   CaseUpdateData,
@@ -84,6 +85,10 @@ class InMemoryStore implements RecoveryStore {
 }
 
 describe("recovery orchestrator", () => {
+  const origProvider = process.env.PAYMENT_PROVIDER;
+  beforeAll(() => { process.env.PAYMENT_PROVIDER = "simulation"; resetRecoveryProviderCache(); });
+  afterAll(() => { process.env.PAYMENT_PROVIDER = origProvider; resetRecoveryProviderCache(); });
+
   it("executes a successful retry: records recoveredAmount and marks case RECOVERED", async () => {
     const store = new InMemoryStore(makeCase());
     const result = await executeCaseAction(store, "case_1", "RETRY_PAYMENT", {

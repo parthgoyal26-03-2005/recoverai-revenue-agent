@@ -26,12 +26,21 @@ function currentAiProviderLabel() {
   if (selected === "groq" && process.env.GROQ_API_KEY) return { label: "Groq", mock: false };
   if (!selected && process.env.GEMINI_API_KEY) return { label: "Gemini", mock: false };
   if (!selected && process.env.GROQ_API_KEY) return { label: "Groq", mock: false };
+  if (selected === "gemini") return { label: "Gemini", mock: false };
+  if (selected === "groq") return { label: "Groq", mock: false };
   return { label: "Mock", mock: true };
+}
+
+function currentRecoveryLabel(): { label: string; isRazorpay: boolean } {
+  const selected = process.env.PAYMENT_PROVIDER?.trim().toLowerCase();
+  if (selected === "razorpay") return { label: "Razorpay Test Mode", isRazorpay: true };
+  return { label: "Simulation Mode", isRazorpay: false };
 }
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
   const provider = currentAiProviderLabel();
+  const recovery = currentRecoveryLabel();
   const maxScenarioRecovered = Math.max(
     ...data.scenarioAnalytics.map((s) => s.amountAtRiskPaise),
     1
@@ -49,11 +58,26 @@ export default async function DashboardPage() {
             and measures every rupee.
           </p>
         </div>
-        {provider.mock && (
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold tracking-wide text-amber-800 uppercase">
-            Demo / Mock AI Mode
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase ${
+              provider.mock
+                ? "bg-amber-100 text-amber-800"
+                : "bg-violet-100 text-violet-700"
+            }`}
+          >
+            AI: {provider.mock ? "Mock / Demo" : provider.label}
           </span>
-        )}
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase ${
+              recovery.isRazorpay
+                ? "bg-emerald-100 text-emerald-800"
+                : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            Recovery: {recovery.label}
+          </span>
+        </div>
       </div>
 
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
