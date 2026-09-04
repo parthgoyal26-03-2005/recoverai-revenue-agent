@@ -416,7 +416,6 @@ async function main() {
     }[] = [];
     let retries = spec.retriesUsed ?? 0;
     let contacts = 0;
-    let recovered = 0;
 
     switch (spec.outcome) {
       case "RECOVERED_RETRY":

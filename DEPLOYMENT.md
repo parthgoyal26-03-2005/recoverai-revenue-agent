@@ -140,7 +140,7 @@ Open `https://<VERCEL_DOMAIN>/settings/integrations`:
 2. Trigger a `payment.failed` (use Razorpay Test Mode checkout with a failing test card, or send a test webhook from the Razorpay dashboard). It should appear as a new `FAILED_PAYMENT` case in `/cases`.
 3. Open the case → **Analyze with AI** → if high-value (≥ ₹5,000) click **Approve Recovery**.
 4. Click **Execute: Retry Payment** → a Razorpay Test Mode payment link is created; case becomes `IN_PROGRESS` with status `AWAITING_PAYMENT` and shows **Awaiting Customer Payment** + **Open Payment Link ↗**.
-5. Open the link and pay with Razorpay test card `4111 1111 1111 1111` (any future expiry/CVV).
+5. Open the link and pay with Razorpay domestic Test Mode card `4100 2800 0000 1007` (any future expiry date, any valid-looking CVV). If the card checkout misbehaves, use Test Mode Netbanking and choose **Success**.
 6. Razorpay fires `payment_link.paid` → webhook validates and case becomes `RECOVERED`; dashboard **Revenue Recovered** increments.
 
 ## Notes
