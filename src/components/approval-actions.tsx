@@ -58,7 +58,7 @@ export function ApprovalActions(props: ApprovalActionsProps) {
               type="button"
               onClick={() => act("approve")}
               disabled={busy !== null}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="bg-[#5B7CFF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#4A6DF5] disabled:opacity-50"
             >
               {busy === "approve" ? "Approving…" : "Approve Recovery"}
             </button>
@@ -66,7 +66,7 @@ export function ApprovalActions(props: ApprovalActionsProps) {
               type="button"
               onClick={() => setRejectOpen((v) => !v)}
               disabled={busy !== null}
-              className="rounded-lg border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+              className="border border-red-400/30 bg-black px-4 py-2 text-sm font-semibold text-red-300 transition-colors hover:bg-red-400/10 disabled:opacity-50"
             >
               Reject Recovery
             </button>
@@ -78,13 +78,13 @@ export function ApprovalActions(props: ApprovalActionsProps) {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Reason (optional)"
-                className="min-w-[220px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none"
+                className="min-w-[220px] flex-1 border border-white/10 bg-black px-3 py-2 text-sm text-[#F7F9FC] placeholder:text-[#6F7A89] focus:border-red-400/50 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={() => act("reject")}
                 disabled={busy !== null}
-                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                className="bg-red-400 px-3 py-2 text-sm font-semibold text-black transition-colors hover:bg-red-300 disabled:opacity-50"
               >
                 {busy === "reject" ? "Rejecting…" : "Confirm Rejection"}
               </button>
@@ -92,16 +92,16 @@ export function ApprovalActions(props: ApprovalActionsProps) {
           )}
         </>
       ) : props.approved || approvedAt ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+        <div className="border border-emerald-400/25 bg-black p-3 text-sm text-emerald-200">
           <span className="font-bold">✓ RECOVERY APPROVED</span>
           {approvedAt && (
-            <span className="ml-2 text-xs text-emerald-600">
+            <span className="ml-2 text-xs text-emerald-300/80">
               at {new Date(approvedAt).toLocaleString("en-IN")}
             </span>
           )}
         </div>
       ) : props.rejected ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+        <div className="border border-red-400/25 bg-black p-3 text-sm text-red-200">
           <span className="font-bold">REJECTED BY MERCHANT</span>
           {props.rejectionReason && ` — ${props.rejectionReason}`}
         </div>
@@ -110,7 +110,7 @@ export function ApprovalActions(props: ApprovalActionsProps) {
       {feedback && (
         <p
           className={`text-sm ${
-            feedback.startsWith("✓") ? "text-emerald-700" : "text-rose-700"
+            feedback.startsWith("✓") ? "text-emerald-300" : "text-red-300"
           }`}
         >
           {feedback}

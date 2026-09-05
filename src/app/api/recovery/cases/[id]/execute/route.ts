@@ -41,6 +41,8 @@ export async function POST(
       {
         error: outcome.error,
         message: outcome.message,
+        ...(outcome.paymentLinkId ? { paymentLinkId: outcome.paymentLinkId } : {}),
+        ...(outcome.paymentLinkUrl ? { paymentLinkUrl: outcome.paymentLinkUrl } : {}),
         policyDecision: outcome.policy
           ? {
               allowedActions: outcome.policy.allowedActions,
@@ -61,5 +63,6 @@ export async function POST(
     recoveredAmountPaise: outcome.recoveredAmountPaise,
     messages: outcome.messages,
     notes: outcome.outcome.notes,
+    ...(outcome.outcome.errorCode ? { providerError: outcome.outcome.errorCode } : {}),
   });
 }

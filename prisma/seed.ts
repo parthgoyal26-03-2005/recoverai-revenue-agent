@@ -2,6 +2,12 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import type { Prisma } from "../src/generated/prisma/client";
+import {
+  FRESH_CASE_SPECS,
+  SEED_WINDOW_HOURS,
+  resolveSeedCreatedAt,
+  resolveSeedWindowExpiresAt,
+} from "./seed-fresh-cases";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is not set");
@@ -56,10 +62,13 @@ type CaseSpec = {
     | "ACTIVE_REMINDER_SENT";
   retriesUsed?: number;
   ageHours: number;
+  /** When set, the case is created this many minutes before seed time (fresh demo cases). */
+  ageMinutes?: number;
 };
 
 async function main() {
   console.log("Seeding RecoverAI data...");
+  const seedNow = new Date();
 
   await prisma.$executeRaw`UPDATE "RecoveryCase" SET "transactionId" = NULL WHERE "transactionId" IS NOT NULL`;
   await prisma.$executeRaw`UPDATE "Transaction" SET "recoveryCaseId" = NULL WHERE "recoveryCaseId" IS NOT NULL`;
@@ -91,7 +100,7 @@ async function main() {
       merchantId: merchant.id,
       maxRetries: 3,
       maxContactAttempts: 2,
-      recoveryWindowHours: 72,
+      recoveryWindowHours: SEED_WINDOW_HOURS,
       approvalThreshold: rupees(5000),
     },
   });
@@ -269,12 +278,27 @@ async function main() {
     });
   }
 
+  // Fresh actionable demo cases: minutes old (not hours), so the dashboard
+  // "Needs Attention" list shows e.g. "3m ago" right after reseeding.
+  // Historical terminal cases above stay backdated for analytics.
+  const freshCustomers = [customers[3], customers[11], customers[23], customers[31]];
+  FRESH_CASE_SPECS.forEach((fresh, i) => {
+    specs.push({
+      customerId: freshCustomers[i].id,
+      scenario: fresh.scenario,
+      amount: fresh.amountPaise,
+      outcome: fresh.outcome,
+      ageHours: 0,
+      ageMinutes: fresh.ageMinutes,
+    });
+  });
+
     const usedTxnIds = new Set<string>();
     const usedCheckoutIds = new Set<string>();
     const usedSubIds = new Set<string>();
 
   for (const spec of specs) {
-    const createdAt = hoursAgo(spec.ageHours);
+    const createdAt = resolveSeedCreatedAt(seedNow, spec);
     const priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" =
       spec.amount >= rupees(25000)
         ? "CRITICAL"
@@ -292,7 +316,7 @@ async function main() {
       priority,
       retryCount: 0,
       contactCount: 0,
-      windowExpiresAt: new Date(createdAt.getTime() + 72 * 3_600_000),
+      windowExpiresAt: resolveSeedWindowExpiresAt(createdAt, SEED_WINDOW_HOURS),
       createdAt,
     };
     const linkedTxn =

@@ -1,24 +1,39 @@
 import Link from "next/link";
-import { MetricCard } from "@/components/metric-card";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  ArrowUpRight,
+  BadgeCheck,
+  CircleDollarSign,
+  ShieldAlert,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
+import { prisma } from "@/lib/db/prisma";
+import { AnimatedKpi, KpiCardStatic } from "@/components/metric-card";
 import { StatusBadge } from "@/components/status-badge";
 import { BatchRunner } from "@/components/batch-runner";
 import { DemoControls } from "@/components/demo-controls";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScenarioPerformance } from "@/components/analytics/scenario-performance";
+import { StatusBar } from "@/components/analytics/status-bar";
+import { Pipeline } from "@/components/analytics/pipeline";
+import { AiOutcomes } from "@/components/analytics/ai-outcomes";
 import { formatINR, timeAgo } from "@/lib/domain/format";
 import {
-  getDashboardData,
-  SCENARIO_LABELS,
-} from "@/lib/analytics/metrics";
+  actionLabel,
+  eventLabel,
+  formatCount,
+  formatLakhINR,
+  scenarioLabel,
+  shortId,
+} from "@/lib/domain/present";
+import { getDashboardData } from "@/lib/analytics/metrics";
 
 export const dynamic = "force-dynamic";
-
-const ACTION_LABELS: Record<string, string> = {
-  RETRY_PAYMENT: "Retry Payment",
-  SCHEDULE_RETRY: "Schedule Retry",
-  SEND_REMINDER: "Send Reminder",
-  OFFER_ASSISTANCE: "Offer Assistance",
-  ESCALATE_TO_MERCHANT: "Escalate",
-  STOP_RECOVERY: "Stop Recovery",
-};
 
 function currentAiProviderLabel() {
   const selected = process.env.AI_PROVIDER?.trim().toLowerCase();
@@ -28,428 +43,344 @@ function currentAiProviderLabel() {
   if (!selected && process.env.GROQ_API_KEY) return { label: "Groq", mock: false };
   if (selected === "gemini") return { label: "Gemini", mock: false };
   if (selected === "groq") return { label: "Groq", mock: false };
-  return { label: "Mock", mock: true };
+  return { label: "Demo", mock: true };
 }
 
 function currentRecoveryLabel(): { label: string; isRazorpay: boolean } {
   const selected = process.env.PAYMENT_PROVIDER?.trim().toLowerCase();
-  if (selected === "razorpay") return { label: "Razorpay Test Mode", isRazorpay: true };
-  return { label: "Simulation Mode", isRazorpay: false };
+  if (selected === "razorpay") return { label: "Razorpay Test", isRazorpay: true };
+  return { label: "Simulation", isRazorpay: false };
 }
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
   const provider = currentAiProviderLabel();
   const recovery = currentRecoveryLabel();
-  const maxScenarioRecovered = Math.max(
-    ...data.scenarioAnalytics.map((s) => s.amountAtRiskPaise),
-    1
-  );
+
+  const attentionCases = await prisma.recoveryCase.findMany({
+    where: { status: "ESCALATED", merchantApproved: false, merchantRejectedAt: null },
+    orderBy: { amountAtRisk: "desc" },
+    take: 6,
+    select: {
+      id: true,
+      scenario: true,
+      status: true,
+      amountAtRisk: true,
+      createdAt: true,
+      customer: { select: { name: true } },
+    },
+  });
+
+  const aiOutcomeData = {
+    analysesPerformed: data.aiPerformance.analysesPerformed,
+    avgConfidencePct: data.aiPerformance.avgConfidencePct,
+    acceptedCount: data.aiPerformance.acceptedCount,
+    approvalRequiredCount: data.aiPerformance.approvalRequiredCount,
+    blockedByPolicyCount: data.aiPerformance.blockedByPolicyCount,
+    stoppedEvents: data.policySafety.stopped,
+    terminalPrevented: data.policySafety.terminalPrevented,
+  };
+
+  const closedCount =
+    data.statusBreakdown.find((s) => s.key === "closed")?.cases ?? 0;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">
-            Revenue Recovery Command Center
-          </h1>
-          <p className="text-sm text-slate-500">
-            RecoverAI finds revenue at risk, understands why, recovers it safely,
-            and measures every rupee.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase ${
-              provider.mock
-                ? "bg-amber-100 text-amber-800"
-                : "bg-violet-100 text-violet-700"
-            }`}
-          >
-            AI: {provider.mock ? "Mock / Demo" : provider.label}
-          </span>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase ${
-              recovery.isRazorpay
-                ? "bg-emerald-100 text-emerald-800"
-                : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            Recovery: {recovery.label}
-          </span>
-        </div>
-      </div>
-
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MetricCard
-          title="Revenue at Risk"
-          value={formatINR(data.hero.totalAtRiskPaise)}
-          sub={`${data.hero.totalCases} cases tracked`}
-          tone="negative"
-        />
-        <MetricCard
-          title="Revenue Recovered"
-          value={formatINR(data.hero.recoveredPaise)}
-          sub={`${data.hero.recoveredCases} cases recovered`}
-          tone="positive"
-        />
-        <MetricCard
-          title="Recovery Rate"
-          value={`${data.hero.recoveryRatePct}%`}
-          sub="of all at-risk revenue"
-        />
-        <MetricCard
-          title="Active Recovery Cases"
-          value={String(data.hero.activeCases)}
-          sub={`${data.hero.awaitingApprovalCases} awaiting approval (${formatINR(data.hero.awaitingApprovalPaise)})`}
-          tone="warning"
-        />
-        <MetricCard title="Cases Recovered" value={String(data.hero.recoveredCases)} tone="positive" />
-        <MetricCard title="Cases Escalated" value={String(data.hero.escalatedCases)} tone="warning" />
-        <MetricCard title="Cases Stopped" value={String(data.hero.stoppedCases)} />
-        <MetricCard
-          title="Amount Awaiting Approval"
-          value={formatINR(data.hero.awaitingApprovalPaise)}
-          tone="warning"
-        />
-      </section>
-
-      <section className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-5">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-          <h2 className="text-sm font-semibold text-slate-900">The Recovery Story</h2>
-          <p className="mt-1 text-xs text-slate-400">Live values from the database</p>
-          <div className="mt-6 space-y-6">
-            <div className="rounded-lg border border-rose-100 bg-rose-50 p-4">
-              <p className="text-xs font-semibold tracking-wide text-rose-600 uppercase">
-                Before RecoverAI
-              </p>
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xl font-semibold text-rose-700">
-                    {formatINR(data.beforeAfter.beforeAtRiskPaise)}
-                  </p>
-                  <p className="text-xs text-rose-500">revenue still at risk</p>
-                </div>
-                <div>
-                  <p className="text-xl font-semibold text-rose-700">
-                    {data.beforeAfter.beforeUnrecoveredCases}
-                  </p>
-                  <p className="text-xs text-rose-500">unrecovered cases</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-center">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6 text-emerald-500">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
-              </svg>
-            </div>
-
-            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-              <p className="text-xs font-semibold tracking-wide text-emerald-700 uppercase">
-                With RecoverAI
-              </p>
-              <div className="mt-2 grid grid-cols-3 gap-3">
-                <div>
-                  <p className="text-xl font-semibold text-emerald-700">
-                    {formatINR(data.beforeAfter.afterRecoveredPaise)}
-                  </p>
-                  <p className="text-xs text-emerald-600">revenue recovered</p>
-                </div>
-                <div>
-                  <p className="text-xl font-semibold text-emerald-700">
-                    {data.beforeAfter.afterRatePct}%
-                  </p>
-                  <p className="text-xs text-emerald-600">recovery rate</p>
-                </div>
-                <div>
-                  <p className="text-xl font-semibold text-emerald-700">
-                    {data.beforeAfter.afterAutoRecoveredCases}
-                  </p>
-                  <p className="text-xs text-emerald-600">auto-recovered cases</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3">
-          <h2 className="text-sm font-semibold text-slate-900">Recovery Funnel</h2>
-          <ol className="mt-4 space-y-2.5">
-            {data.funnel.map((stage, i) => (
-              <li key={stage.label} className="relative rounded-lg bg-slate-50 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
-                      {i + 1}
-                    </span>
-                    <span className="text-sm font-medium text-slate-700">{stage.label}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-slate-900">{stage.value}</span>
-                    {stage.sub && (
-                      <p className="text-xs text-slate-400">{stage.sub}</p>
-                    )}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      {data.hero.awaitingApprovalCases > 0 && (
-        <Link
-          href="/cases?filter=approval"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 shadow-sm hover:bg-amber-100"
-        >
-          <div>
-            <p className="text-sm font-bold tracking-wide text-amber-900 uppercase">
-              Requires Your Attention
-            </p>
-            <p className="text-xs text-amber-700">
-              High-value recoveries are waiting for your approval.
-            </p>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <p className="text-xl font-bold text-amber-900">
-                {data.hero.awaitingApprovalCases} cases
-              </p>
-              <p className="text-xs text-amber-700">
-                {formatINR(data.hero.awaitingApprovalPaise)}
-              </p>
-            </div>
-            <span className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white">
-              Review Approvals →
+    <div className="space-y-6">
+      <PageHeader
+        title="Revenue Recovery"
+        subtitle="Monitor revenue at risk, AI-driven interventions, and recovered revenue across payment failures."
+        actions={
+          <>
+            <span className="border border-[#5B7CFF]/50 bg-black px-2 py-1 text-[11px] font-semibold tracking-[0.04em] text-[#9DB1FF] uppercase">
+              AI: {provider.mock ? "Demo" : provider.label}
             </span>
+            <span className="border border-emerald-400/40 bg-black px-2 py-1 text-[11px] font-semibold tracking-[0.04em] text-emerald-300 uppercase">
+              Recovery: {recovery.label}
+            </span>
+          </>
+        }
+      />
+
+      {/* Primary KPIs — shared boundaries, one black block */}
+      <section aria-label="Key metrics" className="grid grid-cols-1 gap-px border border-[#1A1A1A] bg-[#1A1A1A] sm:grid-cols-2 xl:grid-cols-4">
+        <AnimatedKpi
+          label="Revenue at risk"
+          target={data.hero.totalAtRiskPaise}
+          format="lakh"
+          sub={`${formatCount(data.hero.totalCases)} cases tracked`}
+          tone="negative"
+          icon={Wallet}
+          bare
+        />
+        <AnimatedKpi
+          label="Revenue recovered"
+          target={data.hero.recoveredPaise}
+          format="lakh"
+          sub={`${formatCount(data.hero.recoveredCases)} cases recovered`}
+          tone="positive"
+          icon={CircleDollarSign}
+          bare
+        />
+        <KpiCardStatic
+          label="Recovery rate"
+          displayValue={`${data.hero.recoveryRatePct}%`}
+          sub="share of at-risk revenue recovered"
+          tone="info"
+          icon={TrendingUp}
+          bare
+        />
+        <KpiCardStatic
+          label="Active cases"
+          displayValue={formatCount(data.hero.activeCases)}
+          sub={`${formatCount(data.hero.awaitingApprovalCases)} awaiting approval`}
+          tone="warning"
+          icon={Activity}
+          bare
+        />
+      </section>
+
+      {/* Secondary rail — single strip with separators */}
+      <section aria-label="Secondary metrics" className="grid grid-cols-2 gap-px border border-[#1A1A1A] bg-[#1A1A1A] lg:grid-cols-4">
+        {[
+          {
+            icon: ShieldAlert,
+            label: "Approval required",
+            value: `${formatCount(data.hero.awaitingApprovalCases)} · ${formatLakhINR(data.hero.awaitingApprovalPaise)}`,
+          },
+          {
+            icon: BadgeCheck,
+            label: "Recovered cases",
+            value: formatCount(data.hero.recoveredCases),
+          },
+          {
+            icon: AlertTriangle,
+            label: "Failed / stopped / rejected",
+            value: formatCount(closedCount),
+          },
+          {
+            icon: Activity,
+            label: "AI decisions",
+            value: `${formatCount(data.aiPerformance.analysesPerformed)} · ${data.aiPerformance.avgConfidencePct}% avg confidence`,
+          },
+        ].map((m) => (
+          <div
+            key={m.label}
+            className="flex items-center gap-3 bg-black px-4 py-3"
+          >
+            <m.icon className="h-4 w-4 shrink-0 text-[#6F7A89]" />
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-semibold text-[#F7F9FC] tabular-nums">
+                {m.value}
+              </p>
+              <p className="text-[11.5px] text-[#6F7A89]">{m.label}</p>
+            </div>
           </div>
-        </Link>
-      )}
+        ))}
+      </section>
+
+      {/* Charts row 1 */}
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <Card className="xl:col-span-3">
+          <CardHeader
+            title="Recovery performance"
+            subtitle="Where revenue is being lost, and how much is being recovered — revenue in INR."
+          />
+          <CardBody>
+            <ScenarioPerformance rows={data.scenarioAnalytics} />
+          </CardBody>
+        </Card>
+        <Card className="xl:col-span-2">
+          <CardHeader
+            title="Case portfolio"
+            subtitle="Live distribution of all cases."
+          />
+          <CardBody>
+            <StatusBar segments={data.statusBreakdown} />
+          </CardBody>
+        </Card>
+      </section>
+
+      {/* Charts row 2 */}
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <Card className="xl:col-span-3">
+          <CardHeader
+            title="Recovery pipeline"
+            subtitle="Unique cases at each stage — where are recoveries dropping out?"
+          />
+          <CardBody>
+            <Pipeline counts={data.pipelineCounts} />
+          </CardBody>
+        </Card>
+        <Card className="xl:col-span-2">
+          <CardHeader
+            title="AI / policy outcomes"
+            subtitle="What the AI decided, and what policy allowed."
+          />
+          <CardBody>
+            <AiOutcomes data={aiOutcomeData} />
+          </CardBody>
+        </Card>
+      </section>
+
+      {/* Attention */}
+      <Card>
+        <CardHeader
+          title="Cases needing attention"
+          subtitle={
+            data.hero.awaitingApprovalCases > 0
+              ? `${formatCount(data.hero.awaitingApprovalCases)} high-value recoveries waiting for approval · ${formatINR(data.hero.awaitingApprovalPaise)}`
+              : "High-value recoveries waiting for merchant approval."
+          }
+          action={
+            <Link
+              href="/cases?filter=approval"
+              className="inline-flex items-center gap-1 text-[12.5px] font-medium text-[#9DB1FF] hover:text-white"
+            >
+              View all cases <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          }
+        />
+        <CardBody>
+          {attentionCases.length === 0 ? (
+            <EmptyState
+              icon={BadgeCheck}
+              title="No cases need attention"
+              body="All active cases are currently within recovery policy limits."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-[13.5px]">
+                <thead>
+                  <tr className="text-[11px] font-medium tracking-[0.06em] text-[#6F7A89] uppercase">
+                    <th className="py-2 pr-4 font-medium">Customer</th>
+                    <th className="py-2 pr-4 font-medium">Scenario</th>
+                    <th className="py-2 pr-4 text-right font-medium">Amount</th>
+                    <th className="py-2 pr-4 font-medium">Status</th>
+                    <th className="py-2 font-medium"><span className="sr-only">Action</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attentionCases.map((c) => (
+                    <tr key={c.id} className="border-t border-[#171717] transition-colors hover:bg-[#080808]">
+                      <td className="py-3 pr-4">
+                        <p className="font-medium text-[#F7F9FC]">{c.customer.name}</p>
+                        <p className="font-mono text-[11px] text-[#6F7A89]">{shortId(c.id)}</p>
+                      </td>
+                      <td className="py-3 pr-4 text-[#A3ADBD]">{scenarioLabel(c.scenario)}</td>
+                      <td className="py-3 pr-4 text-right font-semibold text-[#F7F9FC] tabular-nums">
+                        {formatINR(c.amountAtRisk)}
+                      </td>
+                      <td className="py-3 pr-4"><StatusBadge value={c.status} dot /></td>
+                      <td className="py-3 text-right">
+                        <Link
+                          href={`/cases/${c.id}`}
+                          className="inline-flex items-center gap-1 border border-white/10 bg-transparent px-2.5 py-1.5 text-[12px] font-medium text-[#F7F9FC] transition-colors hover:border-[#5B7CFF]/50 hover:bg-[#5B7CFF]/10"
+                        >
+                          Review <ArrowUpRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      {/* Recent activity */}
+      <Card>
+        <CardHeader
+          title="Recent recovery activity"
+          subtitle="Latest audited events across all cases."
+          action={
+            <Link
+              href="/audit"
+              className="inline-flex items-center gap-1 text-[12.5px] font-medium text-[#9DB1FF] hover:text-white"
+            >
+              Full audit trail <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          }
+        />
+        <CardBody>
+          {data.activity.length === 0 ? (
+            <EmptyState
+              icon={Activity}
+              title="No audit activity"
+              body="Recovery actions will appear here as they occur."
+            />
+          ) : (
+            <ol className="divide-y divide-[#171717]">
+              {data.activity.slice(0, 8).map((log) => (
+                <li key={log.id} className="flex items-center gap-3 py-2.5">
+                  <span aria-hidden className="circle h-1.5 w-1.5 shrink-0 bg-[#5B7CFF]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-[#F7F9FC]">
+                      {eventLabel(log.event)}
+                    </p>
+                    <p className="truncate text-[12px] text-[#6F7A89]">
+                      {log.customerName} · {shortId(log.caseId)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[12px] text-[#6F7A89]">
+                    {timeAgo(log.createdAt)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardBody>
+      </Card>
 
       <BatchRunner />
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-900">Recovery by Scenario</h2>
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {data.scenarioAnalytics.map((s) => (
-            <div key={s.scenario} className="rounded-lg border border-slate-200 p-4">
-              <p className="text-sm font-semibold text-slate-800">
-                {SCENARIO_LABELS[s.scenario] ?? s.scenario}
-              </p>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-emerald-500"
-                  style={{ width: `${Math.min(100, (s.recoveredPaise / maxScenarioRecovered) * 100)}%` }}
-                />
-              </div>
-              <dl className="mt-3 space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Cases</dt>
-                  <dd className="font-medium text-slate-900">{s.cases}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">At risk</dt>
-                  <dd className="font-medium text-slate-900">{formatINR(s.amountAtRiskPaise)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Recovered</dt>
-                  <dd className="font-medium text-emerald-700">{formatINR(s.recoveredPaise)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Recovery rate</dt>
-                  <dd className="font-medium text-slate-900">{s.recoveryRatePct}%</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Failed attempts</dt>
-                  <dd className="font-medium text-rose-700">{s.failedAttempts}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Escalations</dt>
-                  <dd className="font-medium text-amber-700">{s.escalations}</dd>
-                </div>
-              </dl>
+      {/* Recent recoveries */}
+      <Card>
+        <CardHeader
+          title="Recent recoveries"
+          subtitle="Successfully recovered revenue with the action that recovered it."
+        />
+        <CardBody>
+          {data.recentRecoveries.length === 0 ? (
+            <EmptyState
+              icon={CircleDollarSign}
+              title="No recovered cases yet"
+              body="Recovered revenue will appear here after successful interventions."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-[13.5px]">
+                <thead>
+                  <tr className="text-[11px] font-medium tracking-[0.06em] text-[#6F7A89] uppercase">
+                    <th className="py-2 pr-4 font-medium">Customer</th>
+                    <th className="py-2 pr-4 font-medium">Scenario</th>
+                    <th className="py-2 pr-4 text-right font-medium">Recovered</th>
+                    <th className="py-2 pr-4 font-medium">Action</th>
+                    <th className="py-2 font-medium">When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.recentRecoveries.map((r) => (
+                    <tr key={r.id} className="border-t border-[#171717] transition-colors hover:bg-[#080808]">
+                      <td className="py-3 pr-4">
+                        <Link href={`/cases/${r.caseId}`} className="font-medium text-[#F7F9FC] hover:text-[#9DB1FF]">
+                          {r.customerName}
+                        </Link>
+                      </td>
+                      <td className="py-3 pr-4 text-[#A3ADBD]">{scenarioLabel(r.scenario)}</td>
+                      <td className="py-3 pr-4 text-right font-semibold text-emerald-300 tabular-nums">
+                        {formatINR(r.recoveredPaise)}
+                      </td>
+                      <td className="py-3 pr-4 text-[#A3ADBD]">{actionLabel(r.action)}</td>
+                      <td className="py-3 text-[12px] text-[#6F7A89]">{timeAgo(r.executedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">AI Performance</h2>
-            {!provider.mock && (
-              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
-                {provider.label}
-              </span>
-            )}
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <div>
-              <p className="text-xl font-semibold text-slate-900">{data.aiPerformance.analysesPerformed}</p>
-              <p className="text-xs text-slate-500">AI analyses performed</p>
-            </div>
-            <div>
-              <p className="text-xl font-semibold text-emerald-700">{data.aiPerformance.acceptedCount}</p>
-              <p className="text-xs text-slate-500">recommendations accepted</p>
-            </div>
-            <div>
-              <p className="text-xl font-semibold text-rose-700">{data.aiPerformance.blockedByPolicyCount}</p>
-              <p className="text-xs text-slate-500">blocked by policy</p>
-            </div>
-            <div>
-              <p className="text-xl font-semibold text-amber-700">{data.aiPerformance.approvalRequiredCount}</p>
-              <p className="text-xs text-slate-500">requiring approval</p>
-            </div>
-            <div>
-              <p className="text-xl font-semibold text-slate-900">{data.aiPerformance.avgConfidencePct}%</p>
-              <p className="text-xs text-slate-500">avg confidence</p>
-            </div>
-          </div>
-          {data.aiPerformance.providers.length > 0 && (
-            <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">
-              Providers used:{" "}
-              {data.aiPerformance.providers.map((p) => `${p.provider} (${p.count})`).join(" · ")}
-            </p>
           )}
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-900">AI Safety &amp; Policy Controls</h2>
-          <div className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-slate-50 py-3 text-xs font-medium text-slate-600">
-            <span className="rounded-md bg-white px-2 py-1 shadow-sm">AI recommends</span>
-            <span aria-hidden>→</span>
-            <span className="rounded-md bg-white px-2 py-1 shadow-sm">Policy validates</span>
-            <span aria-hidden>→</span>
-            <span className="rounded-md bg-emerald-600 px-2 py-1 text-white shadow-sm">Allowed</span>
-            <span className="rounded-md bg-amber-500 px-2 py-1 text-white shadow-sm">Approval</span>
-            <span className="rounded-md bg-rose-600 px-2 py-1 text-white shadow-sm">Blocked</span>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <div>
-              <p className="text-xl font-semibold text-emerald-700">{data.policySafety.allowed}</p>
-              <p className="text-xs text-slate-500">actions allowed</p>
-            </div>
-            <div>
-              <p className="text-xl font-semibold text-rose-700">{data.policySafety.blocked}</p>
-              <p className="text-xs text-slate-500">actions blocked</p>
-            </div>
-            <div>
-              <p className="text-xl font-semibold text-amber-700">{data.policySafety.approvalRequired}</p>
-              <p className="text-xs text-slate-500">approval required</p>
-            </div>
-            <div>
-              <p className="text-xl font-semibold text-slate-700">{data.policySafety.stopped}</p>
-              <p className="text-xs text-slate-500">recoveries stopped</p>
-            </div>
-            <div>
-              <p className="text-xl font-semibold text-slate-700">{data.policySafety.terminalPrevented}</p>
-              <p className="text-xs text-slate-500">terminal executions prevented</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <h2 className="border-b border-slate-200 px-5 py-4 text-sm font-semibold text-slate-900">
-          Recent Recoveries
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-xs tracking-wide text-slate-500 uppercase">
-                <th className="px-5 py-3 font-medium">Customer</th>
-                <th className="px-5 py-3 font-medium">Scenario</th>
-                <th className="px-5 py-3 font-medium">Amount at Risk</th>
-                <th className="px-5 py-3 font-medium">Action</th>
-                <th className="px-5 py-3 font-medium">Recovered</th>
-                <th className="px-5 py-3 font-medium">AI Confidence</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.recentRecoveries.map((r) => (
-                <tr key={r.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                  <td className="px-5 py-3 font-medium text-slate-900">
-                    <Link href={`/cases/${r.caseId}`} className="hover:text-emerald-700">
-                      {r.customerName}
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3 text-slate-600">{SCENARIO_LABELS[r.scenario] ?? r.scenario}</td>
-                  <td className="px-5 py-3 text-slate-900">{formatINR(r.amountAtRiskPaise)}</td>
-                  <td className="px-5 py-3 text-slate-600">{ACTION_LABELS[r.action] ?? r.action}</td>
-                  <td className="px-5 py-3 font-semibold text-emerald-700">{formatINR(r.recoveredPaise)}</td>
-                  <td className="px-5 py-3 text-slate-600">
-                    {r.confidence != null ? `${Math.round(r.confidence * 100)}%` : "—"}
-                  </td>
-                  <td className="px-5 py-3"><StatusBadge value={r.status} /></td>
-                  <td className="px-5 py-3 text-xs text-slate-400">{timeAgo(r.executedAt)}</td>
-                </tr>
-              ))}
-              {data.recentRecoveries.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-5 py-8 text-center text-slate-400">
-                    No successful recoveries yet — run a recovery batch to create some.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-900">Top Recovered Customers</h2>
-          <table className="mt-3 w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-xs text-slate-500 uppercase">
-                <th className="py-2 font-medium">Customer</th>
-                <th className="py-2 font-medium">Cases</th>
-                <th className="py-2 font-medium">At Risk</th>
-                <th className="py-2 font-medium">Recovered</th>
-                <th className="py-2 font-medium">Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.topCustomers.map((c) => (
-                <tr key={c.customerId} className="border-b border-slate-100 last:border-0">
-                  <td className="py-2 font-medium text-slate-800">{c.name}</td>
-                  <td className="py-2 text-slate-600">{c.cases}</td>
-                  <td className="py-2 text-slate-600">{formatINR(c.atRiskPaise)}</td>
-                  <td className="py-2 font-medium text-emerald-700">{formatINR(c.recoveredPaise)}</td>
-                  <td className="py-2 text-slate-600">{c.recoveryRatePct}%</td>
-                </tr>
-              ))}
-              {data.topCustomers.length === 0 && (
-                <tr><td colSpan={5} className="py-6 text-center text-slate-400">No recoveries yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-900">Activity Timeline</h2>
-          <ol className="mt-4 max-h-[320px] space-y-3 overflow-y-auto pr-1">
-            {data.activity.map((log) => (
-              <li key={log.id} className="relative border-l-2 border-slate-100 pl-4">
-                <span className="absolute top-1.5 -left-[5px] h-2 w-2 rounded-full bg-emerald-500" />
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-xs font-medium text-slate-800">{log.event}</p>
-                  <span className="shrink-0 text-xs text-slate-400">{timeAgo(log.createdAt)}</span>
-                </div>
-                <p className="truncate text-xs text-slate-400">
-                  {log.actor.replace(/_/g, " ")} ·{" "}
-                  <Link href={`/cases/${log.caseId}`} className="hover:text-emerald-700">
-                    {log.customerName}
-                  </Link>
-                </p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
+        </CardBody>
+      </Card>
 
       <DemoControls devMode={process.env.NODE_ENV !== "production"} />
     </div>

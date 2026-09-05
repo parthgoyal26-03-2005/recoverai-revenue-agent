@@ -19,6 +19,10 @@ function hoursFromNow(h: number) {
   return new Date(Date.now() + h * 3_600_000);
 }
 
+function hoursAgo(h: number) {
+  return new Date(Date.now() - h * 3_600_000);
+}
+
 function makeApprovalCase(
   overrides?: Partial<CaseWithRelations>
 ): CaseWithRelations {
@@ -235,5 +239,120 @@ describe("merchant approval workflow", () => {
     expect(idx("APPROVAL_GRANTED")).toBeGreaterThan(idx("AI_ANALYSIS_COMPLETED"));
     expect(idx("INTERVENTION_EXECUTED")).toBeGreaterThan(idx("APPROVAL_GRANTED"));
     expect(events).toContain("RECOVERY_SUCCESS");
+  });
+});
+
+describe("approval after window expiry (bounded reopen)", () => {
+  const origProvider = process.env.PAYMENT_PROVIDER;
+  beforeAll(() => { process.env.PAYMENT_PROVIDER = "simulation"; resetRecoveryProviderCache(); });
+  afterAll(() => { process.env.PAYMENT_PROVIDER = origProvider; resetRecoveryProviderCache(); });
+
+  it("1. ordinary low-value failed payment still expires after the window", async () => {
+    const store = new RecoveryTestStore(
+      makeApprovalCase({
+        status: "IN_PROGRESS",
+        amountAtRisk: 249_900,
+        priority: "MEDIUM",
+        windowExpiresAt: hoursAgo(1),
+      })
+    );
+
+    const result = await approveCase(store, "case_appr");
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/expired/i);
+    expect(store.cases.get("case_appr")!.merchantApproved).toBe(false);
+  });
+
+  it("2. expired approval-required case can still be approved", async () => {
+    const store = new RecoveryTestStore(
+      makeApprovalCase({ windowExpiresAt: hoursAgo(80) })
+    );
+
+    const result = await approveCase(store, "case_appr");
+    expect(result.ok).toBe(true);
+    expect(store.cases.get("case_appr")!.merchantApproved).toBe(true);
+  });
+
+  it("3. approval refreshes windowExpiresAt from approval time", async () => {
+    const now = new Date("2026-09-05T12:00:00.000Z");
+    const store = new RecoveryTestStore(
+      makeApprovalCase({ windowExpiresAt: new Date("2026-09-01T12:00:00.000Z") })
+    );
+
+    const result = await approveCase(store, "case_appr", { now });
+    expect(result.ok).toBe(true);
+    expect(result.windowReopened).toBe(true);
+
+    const updated = store.cases.get("case_appr")!;
+    const expected = new Date(now.getTime() + 72 * 3_600_000);
+    expect(updated.windowExpiresAt.getTime()).toBe(expected.getTime());
+    expect(result.newWindowExpiresAt).toBe(expected.toISOString());
+
+    const reopened = store.audits.find((a) => a.event === "RECOVERY_WINDOW_REOPENED");
+    expect(reopened).toBeTruthy();
+    const meta = reopened!.metadata as Record<string, unknown>;
+    expect(meta.previousWindowExpiresAt).toBe("2026-09-01T12:00:00.000Z");
+    expect(meta.newWindowExpiresAt).toBe(expected.toISOString());
+  });
+
+  it("4. configured RecoveryPolicy.recoveryWindowHours is used (not hardcoded)", async () => {
+    const now = new Date("2026-09-05T12:00:00.000Z");
+    const store = new RecoveryTestStore(
+      makeApprovalCase({
+        windowExpiresAt: new Date("2026-09-01T12:00:00.000Z"),
+        merchant: {
+          id: "merchant_1",
+          name: "Merchant",
+          policy: {
+            maxRetries: DEFAULT_POLICY.maxRetries,
+            maxContactAttempts: DEFAULT_POLICY.maxContactAttempts,
+            recoveryWindowHours: 48,
+            approvalThreshold: DEFAULT_POLICY.approvalThresholdPaise,
+          },
+        },
+      })
+    );
+
+    const result = await approveCase(store, "case_appr", { now });
+    expect(result.ok).toBe(true);
+    const expected = new Date(now.getTime() + 48 * 3_600_000);
+    expect(store.cases.get("case_appr")!.windowExpiresAt.getTime()).toBe(
+      expected.getTime()
+    );
+  });
+
+  it("5. rejected and terminal cases still cannot be approved after expiry", async () => {
+    const rejected = new RecoveryTestStore(
+      makeApprovalCase({
+        status: "ESCALATED",
+        merchantRejectedAt: hoursAgo(90),
+        rejectionReason: "Too risky.",
+        windowExpiresAt: hoursAgo(80),
+      })
+    );
+    // rejected-but-not-terminal guard fires first
+    const r1 = await approveCase(rejected, "case_appr");
+    expect(r1.ok).toBe(false);
+
+    const recovered = new RecoveryTestStore(
+      makeApprovalCase({ status: "RECOVERED", windowExpiresAt: hoursAgo(80) })
+    );
+    const r2 = await approveCase(recovered, "case_appr");
+    expect(r2.ok).toBe(false);
+    expect(r2.error).toMatch(/no longer possible/i);
+  });
+
+  it("6. retry limits remain unchanged — exhausted retries block late approval", async () => {
+    const store = new RecoveryTestStore(
+      makeApprovalCase({
+        retryCount: DEFAULT_POLICY.maxRetries,
+        windowExpiresAt: hoursAgo(80),
+      })
+    );
+
+    const result = await approveCase(store, "case_appr");
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/limits/i);
+    expect(store.cases.get("case_appr")!.merchantApproved).toBe(false);
   });
 });

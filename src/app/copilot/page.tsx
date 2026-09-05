@@ -1,13 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
 import { CopilotClient, type AnalysisView } from "@/components/copilot-client";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
-
-const SCENARIO_LABELS: Record<string, string> = {
-  FAILED_PAYMENT: "Failed Payment",
-  CHECKOUT_ABANDONMENT: "Checkout Abandonment",
-  SUBSCRIPTION_FAILURE: "Subscription Failure",
-};
 
 export default async function CopilotPage() {
   const cases = await prisma.recoveryCase.findMany({
@@ -19,9 +16,12 @@ export default async function CopilotPage() {
     },
   });
 
+  const { formatINR } = await import("@/lib/domain/format");
+  const { scenarioLabel } = await import("@/lib/domain/present");
+
   const caseOptions = cases.map((c) => ({
     id: c.id,
-    label: `${c.customer.name} — ${SCENARIO_LABELS[c.scenario] ?? c.scenario} — ₹${(c.amountAtRisk / 100).toLocaleString("en-IN")} (${c.status.toLowerCase()})`,
+    label: `${c.customer.name} — ${scenarioLabel(c.scenario)} — ${formatINR(c.amountAtRisk)}`,
   }));
 
   const existingAnalyses: Record<string, AnalysisView> = {};
@@ -31,7 +31,7 @@ export default async function CopilotPage() {
     existingAnalyses[c.id] = {
       decisionId: d.id,
       customerName: c.customer.name,
-      amountLabel: `₹${(c.amountAtRisk / 100).toLocaleString("en-IN")}`,
+      amountLabel: formatINR(c.amountAtRisk),
       diagnosis: d.diagnosis,
       riskLevel: d.riskLevel,
       recommendedAction: d.recommendedAction,
@@ -51,18 +51,17 @@ export default async function CopilotPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">AI Copilot</h1>
-        <p className="text-sm text-slate-500">
-          AI diagnosis and recovery recommendations — validated by the
-          deterministic policy engine before anything can execute
-        </p>
-      </div>
+      <PageHeader
+        title="AI Recovery Copilot"
+        subtitle="Analyze recovery cases and generate policy-safe intervention recommendations. The AI recommends — policy decides."
+      />
 
       {caseOptions.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-400">
-          No recovery cases found. Seed the database first.
-        </div>
+        <EmptyState
+          icon={Sparkles}
+          title="No recovery cases found"
+          body="Seed the database first — copilot analyses will appear here."
+        />
       ) : (
         <CopilotClient cases={caseOptions} existingAnalyses={existingAnalyses} />
       )}

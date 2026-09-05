@@ -1,33 +1,29 @@
 import Link from "next/link";
+import { ArrowUpRight, BadgeCheck } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { StatusBadge } from "@/components/status-badge";
+import { Card, CardBody } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { formatINR, timeAgo } from "@/lib/domain/format";
+import { scenarioLabel, shortId } from "@/lib/domain/present";
 import { DEFAULT_POLICY } from "@/lib/domain/types";
 import { evaluatePolicy } from "@/lib/policy/engine";
 import {
   computeApprovalAttention,
   getCaseRowAction,
-  type CaseRowAction,
 } from "@/lib/analytics/metrics";
+import { clsx } from "clsx";
 
 export const dynamic = "force-dynamic";
 
-const SCENARIO_LABELS: Record<string, string> = {
-  FAILED_PAYMENT: "Failed Payment",
-  CHECKOUT_ABANDONMENT: "Checkout Abandonment",
-  SUBSCRIPTION_FAILURE: "Subscription Failure",
-};
-
-const ROW_TONE_STYLES: Record<CaseRowAction["tone"], string> = {
-  approval: "bg-amber-100 text-amber-800 font-semibold",
-  ready: "bg-emerald-100 text-emerald-800 font-semibold",
-  scheduled: "bg-blue-100 text-blue-700",
-  recovered: "bg-emerald-50 text-emerald-700",
-  failed: "bg-rose-50 text-rose-700",
-  rejected: "bg-rose-100 text-rose-800",
-  stopped: "bg-slate-200 text-slate-600",
-  view: "bg-slate-100 text-slate-600",
-};
+const TABS = [
+  { key: "all", label: "All", href: "/cases" },
+  { key: "approval", label: "Needs Attention", href: "/cases?filter=approval" },
+  { key: "progress", label: "In Progress", href: "/cases?filter=progress" },
+  { key: "recovered", label: "Recovered", href: "/cases?filter=recovered" },
+  { key: "stopped", label: "Stopped", href: "/cases?filter=stopped" },
+] as const;
 
 export default async function CasesPage({
   searchParams,
@@ -35,14 +31,24 @@ export default async function CasesPage({
   searchParams: Promise<{ filter?: string }>;
 }) {
   const { filter } = await searchParams;
-  const showApprovalsOnly = filter === "approval";
+  const active = filter ?? "all";
+
+  const where =
+    active === "approval"
+      ? { status: "ESCALATED" as const, merchantApproved: false, merchantRejectedAt: null }
+      : active === "progress"
+        ? { status: { in: ["DETECTED", "DIAGNOSED", "IN_PROGRESS"] as ("DETECTED" | "DIAGNOSED" | "IN_PROGRESS")[] } }
+        : active === "recovered"
+          ? { status: "RECOVERED" as const }
+          : active === "stopped"
+            ? { status: { in: ["STOPPED", "FAILED", "REJECTED"] as ("STOPPED" | "FAILED" | "REJECTED")[] } }
+            : undefined;
 
   const [cases, policyRow] = await Promise.all([
     prisma.recoveryCase.findMany({
-      where: showApprovalsOnly
-        ? { status: "ESCALATED", merchantApproved: false, merchantRejectedAt: null }
-        : undefined,
+      where,
       orderBy: [{ merchantRejectedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+      take: 200,
       include: {
         customer: { select: { name: true, email: true } },
         interventions: {
@@ -65,178 +71,155 @@ export default async function CasesPage({
       }
     : DEFAULT_POLICY;
 
-  const allForAttention = showApprovalsOnly
-    ? []
-    : await prisma.recoveryCase.findMany({
-        where: { status: "ESCALATED" },
-        select: {
-          status: true,
-          amountAtRisk: true,
-          merchantApproved: true,
-          merchantRejectedAt: true,
-        },
-      });
+  const allForAttention = await prisma.recoveryCase.findMany({
+    where: { status: "ESCALATED" },
+    select: {
+      status: true,
+      amountAtRisk: true,
+      merchantApproved: true,
+      merchantRejectedAt: true,
+    },
+  });
   const attention = computeApprovalAttention(allForAttention);
-
   const now = new Date();
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Recovery Cases</h1>
-          <p className="text-sm text-slate-500">
-            All revenue-loss cases handled by the deterministic recovery engine
-          </p>
-        </div>
-        <div className="flex gap-2 text-sm">
-          <Link
-            href="/cases"
-            className={`rounded-lg px-3 py-1.5 font-medium ${
-              !showApprovalsOnly
-                ? "bg-slate-900 text-white"
-                : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            All
-          </Link>
-          <Link
-            href="/cases?filter=approval"
-            className={`rounded-lg px-3 py-1.5 font-medium ${
-              showApprovalsOnly
-                ? "bg-amber-500 text-white"
-                : "border border-amber-300 bg-white text-amber-700 hover:bg-amber-50"
-            }`}
-          >
-            Needs Approval{attention.cases > 0 ? ` (${attention.cases})` : ""}
-          </Link>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Recovery Cases"
+        subtitle="All detected revenue recovery opportunities, with the policy-derived next step for each."
+      />
+
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Case filters">
+        {TABS.map((t) => {
+          const isActive = active === t.key || (t.key === "all" && active !== "approval" && active !== "progress" && active !== "recovered" && active !== "stopped");
+          return (
+            <Link
+              key={t.key}
+              href={t.href}
+              role="tab"
+              aria-selected={isActive}
+              className={clsx(
+                "border px-3 py-1.5 text-[13px] font-medium transition-colors duration-150",
+                isActive
+                  ? "border-[#5B7CFF]/50 bg-[#5B7CFF]/10 text-white"
+                  : "border-white/10 bg-transparent text-[#A3ADBD] hover:border-white/25 hover:text-white"
+              )}
+            >
+              {t.label}
+              {t.key === "approval" && attention.cases > 0 ? ` (${attention.cases})` : ""}
+            </Link>
+          );
+        })}
       </div>
 
-      {!showApprovalsOnly && attention.cases > 0 && (
+      {attention.cases > 0 && active !== "approval" && (
         <Link
           href="/cases?filter=approval"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 hover:bg-amber-100"
+          className="flex flex-wrap items-center justify-between gap-3 border border-amber-400/25 bg-black px-5 py-4 transition-colors hover:border-amber-400/40"
         >
           <div>
-            <p className="text-sm font-bold text-amber-900">Requires Your Attention</p>
-            <p className="text-xs text-amber-700">
+            <p className="text-sm font-semibold text-amber-200">Requires your attention</p>
+            <p className="text-[12.5px] text-amber-200/70">
               High-value recoveries are waiting for your approval.
             </p>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <p className="text-xl font-bold text-amber-900">{attention.cases} cases</p>
-              <p className="text-xs text-amber-700">{formatINR(attention.amountPaise)}</p>
-            </div>
-            <span className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white">
-              Review Approvals →
-            </span>
-          </div>
+          <p className="text-lg font-semibold text-amber-200 tabular-nums">
+            {attention.cases} cases · {formatINR(attention.amountPaise)}
+          </p>
         </Link>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-xs tracking-wide text-slate-500 uppercase">
-                <th className="px-5 py-3 font-medium">Case</th>
-                <th className="px-5 py-3 font-medium">Customer</th>
-                <th className="px-5 py-3 font-medium">Scenario</th>
-                <th className="px-5 py-3 font-medium">Amount at Risk</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Next Step</th>
-                <th className="px-5 py-3 font-medium">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cases.map((c) => {
-                const evaluation = evaluatePolicy(
-                  {
-                    scenario: c.scenario,
-                    amountAtRiskPaise: c.amountAtRisk,
-                    retryCount: c.retryCount,
-                    contactCount: c.contactCount,
-                    windowExpiresAt: c.windowExpiresAt,
-                    merchantApproved: c.merchantApproved,
-                    now,
-                  },
-                  config
-                );
-                const rowAction = getCaseRowAction({
-                  status: c.status,
-                  merchantApproved: c.merchantApproved,
-                  merchantRejectedAt: c.merchantRejectedAt,
-                  windowExpiresAt: c.windowExpiresAt,
-                  hasScheduledIntervention: c.interventions.length > 0,
-                  allowedProgressAction: evaluation.allowedActions.some(
-                    (a) =>
-                      a === "RETRY_PAYMENT" ||
-                      a === "SCHEDULE_RETRY" ||
-                      a === "SEND_REMINDER" ||
-                      a === "OFFER_ASSISTANCE"
-                  ),
-                });
-
-                return (
-                  <tr
-                    key={c.id}
-                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
-                  >
-                    <td className="px-5 py-3 font-mono text-xs">
-                      <Link
-                        href={`/cases/${c.id}`}
-                        className="text-emerald-700 hover:text-emerald-800"
-                      >
-                        {c.id.slice(-8)}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3">
-                      <p className="font-medium text-slate-900">{c.customer.name}</p>
-                      <p className="text-xs text-slate-400">{c.customer.email}</p>
-                    </td>
-                    <td className="px-5 py-3 text-slate-600">
-                      {SCENARIO_LABELS[c.scenario] ?? c.scenario}
-                    </td>
-                    <td className="px-5 py-3 font-medium text-slate-900">
-                      {formatINR(c.amountAtRisk)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <StatusBadge value={c.status} />
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs ${ROW_TONE_STYLES[rowAction.tone]}`}
-                      >
-                        {rowAction.label}
-                      </span>
-                      <Link
-                        href={`/cases/${c.id}`}
-                        className="ml-2 text-xs font-medium text-emerald-700 hover:text-emerald-800"
-                      >
-                        [{rowAction.cta}]
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3 text-xs text-slate-400">
-                      {timeAgo(c.createdAt)}
-                    </td>
+      <Card>
+        <CardBody className="!px-0 !py-0">
+          {cases.length === 0 ? (
+            <div className="p-5">
+              <EmptyState
+                icon={BadgeCheck}
+                title={active === "approval" ? "No cases need attention" : "No recovery cases"}
+                body={
+                  active === "approval"
+                    ? "All active cases are currently within recovery policy limits."
+                    : "Recovery cases will appear here as they are detected."
+                }
+              />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[880px] text-left text-[13.5px]">
+                <thead>
+                  <tr className="text-[11px] font-medium tracking-[0.06em] text-[#6F7A89] uppercase">
+                    <th className="px-5 py-3 font-medium">Customer</th>
+                    <th className="px-4 py-3 font-medium">Scenario</th>
+                    <th className="px-4 py-3 text-right font-medium">Amount</th>
+                    <th className="px-4 py-3 font-medium">Risk</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Next step</th>
+                    <th className="px-5 py-3 font-medium"><span className="sr-only">Open</span></th>
                   </tr>
-                );
-              })}
-              {cases.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-slate-400">
-                    {showApprovalsOnly
-                      ? "No cases are waiting for your approval."
-                      : "No recovery cases yet."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                </thead>
+                <tbody>
+                  {cases.map((c) => {
+                    const evaluation = evaluatePolicy(
+                      {
+                        scenario: c.scenario,
+                        amountAtRiskPaise: c.amountAtRisk,
+                        retryCount: c.retryCount,
+                        contactCount: c.contactCount,
+                        windowExpiresAt: c.windowExpiresAt,
+                        merchantApproved: c.merchantApproved,
+                        now,
+                      },
+                      config
+                    );
+                    const rowAction = getCaseRowAction({
+                      status: c.status,
+                      merchantApproved: c.merchantApproved,
+                      merchantRejectedAt: c.merchantRejectedAt,
+                      windowExpiresAt: c.windowExpiresAt,
+                      hasScheduledIntervention: c.interventions.length > 0,
+                      allowedProgressAction: evaluation.allowedActions.some(
+                        (a) =>
+                          a === "RETRY_PAYMENT" ||
+                          a === "SCHEDULE_RETRY" ||
+                          a === "SEND_REMINDER" ||
+                          a === "OFFER_ASSISTANCE"
+                      ),
+                    });
+                    return (
+                      <tr
+                        key={c.id}
+                        className="border-t border-[#171717] transition-colors hover:bg-[#080808]"
+                      >
+                        <td className="px-5 py-3">
+                          <p className="font-medium text-[#F7F9FC]">{c.customer.name}</p>
+                          <p className="font-mono text-[11px] text-[#6F7A89]">{shortId(c.id)} · {timeAgo(c.createdAt)}</p>
+                        </td>
+                        <td className="px-4 py-3 text-[#A3ADBD]">{scenarioLabel(c.scenario)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#F7F9FC] tabular-nums">
+                          {formatINR(c.amountAtRisk)}
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge value={c.priority} /></td>
+                        <td className="px-4 py-3"><StatusBadge value={c.status} dot /></td>
+                        <td className="px-4 py-3 text-[12.5px] text-[#A3ADBD]">{rowAction.label}</td>
+                        <td className="px-5 py-3 text-right">
+                          <Link
+                            href={`/cases/${c.id}`}
+                            aria-label={`View case for ${c.customer.name}`}
+                            className="inline-flex items-center gap-1 border border-white/10 bg-transparent px-2.5 py-1.5 text-[12px] font-medium text-[#F7F9FC] transition-colors hover:border-[#5B7CFF]/50 hover:bg-[#5B7CFF]/10"
+                          >
+                            View <ArrowUpRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }

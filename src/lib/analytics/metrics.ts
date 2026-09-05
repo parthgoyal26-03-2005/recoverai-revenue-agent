@@ -556,6 +556,25 @@ export async function getDashboardData() {
 
   const scenarioAnalytics = await getScenarioRows();
 
+  // True unique-case pipeline stages (additive; existing formulas untouched).
+  // NOTE: the legacy `actionsExecuted` counts INTERVENTIONS, not cases, and
+  // must never share a funnel with case counts — it is exposed separately.
+  const [analyzedGroups, attemptedGroups] = await Promise.all([
+    prisma.aIDecision.groupBy({ by: ["recoveryCaseId"] }),
+    prisma.recoveryIntervention.groupBy({
+      by: ["recoveryCaseId"],
+      where: { executedAt: { not: null } },
+    }),
+  ]);
+  const pipelineCounts = {
+    detected: totalCases,
+    analyzed: analyzedGroups.length,
+    eligible: eligibleCases,
+    attempted: attemptedGroups.length,
+    recovered: recoveredCasesCount,
+    interventionsExecuted: actionsExecuted,
+  };
+
   const aiDecisionsForPerf = await prisma.aIDecision.findMany({
     select: {
       recoveryCaseId: true,
@@ -651,6 +670,34 @@ export async function getDashboardData() {
     createdAt: log.createdAt,
   }));
 
+  // Presentation-only aggregates derived from existing counts (no formula changes).
+  const statusBreakdown = [
+    { key: "recovered", label: "Recovered", cases: countOf("RECOVERED") },
+    {
+      key: "active",
+      label: "Active",
+      cases:
+        countOf("DETECTED") + countOf("DIAGNOSED") + countOf("IN_PROGRESS"),
+    },
+    {
+      key: "approval",
+      label: "Needs approval",
+      cases: approvalAttention.cases,
+    },
+    {
+      key: "closed",
+      label: "Failed / stopped / rejected",
+      cases:
+        countOf("FAILED") + countOf("STOPPED") + countOf("REJECTED"),
+    },
+  ];
+  const funnelCounts = {
+    casesAnalyzed: totalCases,
+    casesEligible: eligibleCases,
+    actionsExecuted,
+    recoveredCases: recoveredCasesCount,
+  };
+
   return {
     hero: {
       totalAtRiskPaise,
@@ -666,6 +713,9 @@ export async function getDashboardData() {
     },
     approvalAttention,
     funnel,
+    funnelCounts,
+    pipelineCounts,
+    statusBreakdown,
     scenarioAnalytics,
     aiPerformance: {
       ...aiPerformance,

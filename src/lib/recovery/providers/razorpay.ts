@@ -66,13 +66,18 @@ export class RazorpayProvider implements RecoveryProvider {
     });
 
     if (!created.ok || !created.id || !created.url) {
+      const rawError = created.error ?? "Payment link creation failed.";
+      // Razorpay Test Mode allows only 30 payment links per business. This
+      // is a provider/API creation failure — not a customer payment failure.
+      const limitReached = /test mode limit of 30 reached/i.test(rawError);
       return {
         status: "COMPLETED",
         result: "FAILURE",
         recoveredAmountPaise: 0,
-        notes: created.error ?? "Payment link creation failed.",
+        notes: rawError,
         paymentLink: null,
         executedBy: this.name,
+        errorCode: limitReached ? "RAZORPAY_TEST_LINK_LIMIT_REACHED" : null,
       };
     }
 

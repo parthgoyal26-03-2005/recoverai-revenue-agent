@@ -1,29 +1,42 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  BadgeCheck,
+  Bell,
+  Brain,
+  CheckCircle2,
+  CircleDot,
+  Clock,
+  CreditCard,
+  FileText,
+  Scale,
+  User,
+  XCircle,
+} from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { StatusBadge } from "@/components/status-badge";
 import { CaseActions } from "@/components/case-actions";
 import { AnalyzeCaseButton } from "@/components/analyze-case-button";
 import { ApprovalActions } from "@/components/approval-actions";
+import { CheckPaymentButton, PaymentStatusPoller } from "@/components/payment-status-sync";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatINR, timeAgo } from "@/lib/domain/format";
+import {
+  actionLabel,
+  eventLabel,
+  interventionResultLabel,
+  scenarioLabel,
+  shortId,
+  statusLabel,
+} from "@/lib/domain/present";
 import { evaluatePolicy } from "@/lib/policy/engine";
 import { policyConfigFromCase } from "@/lib/recovery/orchestrator";
 import type { CaseWithRelations } from "@/lib/recovery/store";
 
 export const dynamic = "force-dynamic";
-
-const SCENARIO_LABELS: Record<string, string> = {
-  FAILED_PAYMENT: "Payment failed",
-  CHECKOUT_ABANDONMENT: "Checkout abandoned",
-  SUBSCRIPTION_FAILURE: "Subscription payment failed",
-};
-
-function humanize(value: string) {
-  return value
-    .split(/[_\s]+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
-}
 
 function windowStatusLabel(expiresAt: Date): string {
   const nowMs = Date.now();
@@ -44,14 +57,28 @@ function scheduledDueMinutes(interventions: { scheduledAt: Date | null }[]): num
   return min;
 }
 
-function SectionHeading({ step, title }: { step: number; title: string }) {
+type TimelineState = "done" | "current" | "waiting" | "attention" | "blocked";
+
+function TimelineDot({ state }: { state: TimelineState }) {
+  const styles: Record<TimelineState, string> = {
+    done: "border-emerald-400/40 bg-emerald-400/15 text-emerald-300",
+    current: "border-[#5B7CFF]/50 bg-[#5B7CFF]/15 text-[#9DB1FF]",
+    waiting: "border-white/10 bg-white/[0.04] text-[#6F7A89]",
+    attention: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+    blocked: "border-red-400/40 bg-red-400/10 text-red-300",
+  };
+  const Icon =
+    state === "done"
+      ? CheckCircle2
+      : state === "blocked"
+        ? XCircle
+        : state === "attention"
+          ? Bell
+          : CircleDot;
   return (
-    <div className="flex items-center gap-2">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
-        {step}
-      </span>
-      <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-    </div>
+    <span className={`circle flex h-7 w-7 shrink-0 items-center justify-center border ${styles[state]}`}>
+      <Icon className="h-3.5 w-3.5" />
+    </span>
   );
 }
 
@@ -198,132 +225,204 @@ export default async function CaseDetailPage({
     !recoveryCase.merchantApproved &&
     !recoveryCase.merchantRejectedAt;
 
-  const progressStages = [
+  const approvalNeeded =
+    recoveryCase.amountAtRisk >= config.approvalThresholdPaise;
+  const isTerminal = ["RECOVERED", "FAILED", "STOPPED", "REJECTED"].includes(
+    recoveryCase.status
+  );
+  const policyAudit = auditLogs.find((l) =>
+    ["CASE_ANALYZED", "POLICY_EVALUATION_ALLOWED", "ACTION_ALLOWED", "ACTION_BLOCKED", "APPROVAL_REQUIRED"].includes(l.event)
+  );
+
+  const timeline: {
+    icon: typeof Brain;
+    title: string;
+    body: string;
+    time?: string;
+    state: TimelineState;
+  }[] = [
     {
-      label: "AI Analyzed",
-      done: latestDecision != null,
+      icon: FileText,
+      title: "Detected",
+      body: `${scenarioLabel(recoveryCase.scenario)} · ${formatINR(recoveryCase.amountAtRisk)} at risk`,
+      time: timeAgo(recoveryCase.createdAt),
+      state: "done",
     },
     {
-      label: "Approval Required",
-      done: awaitingApproval || recoveryCase.merchantApproved,
+      icon: Brain,
+      title: "AI Diagnosis",
+      body: latestDecision
+        ? `${latestDecision.diagnosis} → ${actionLabel(latestDecision.recommendedAction)} · ${Math.round(latestDecision.confidence * 100)}% confidence`
+        : "No AI analysis yet — run Analyze with AI below.",
+      time: latestDecision ? timeAgo(latestDecision.createdAt) : undefined,
+      state: latestDecision ? "done" : "current",
     },
     {
-      label: recoveryCase.merchantRejectedAt ? "Rejected" : "Merchant Approved",
-      done: recoveryCase.merchantApproved || !!recoveryCase.merchantRejectedAt,
-      tone: recoveryCase.merchantRejectedAt ? ("failed" as const) : undefined,
+      icon: Scale,
+      title: "Policy Decision",
+      body: evaluation.summaryReason,
+      time: policyAudit ? timeAgo(policyAudit.createdAt) : undefined,
+      state:
+        interventions.length > 0 || policyAudit
+          ? evaluation.eligible
+            ? "done"
+            : "blocked"
+          : "waiting",
     },
     {
-      label: "Ready to Execute",
-      done:
-        recoveryCase.merchantApproved &&
-        evaluation.eligible,
+      icon: User,
+      title: "Merchant Approval",
+      body: !approvalNeeded
+        ? `Below the ${formatINR(config.approvalThresholdPaise)} threshold — no approval needed.`
+        : recoveryCase.merchantApproved
+          ? "Approved — execution unlocked."
+          : recoveryCase.merchantRejectedAt
+            ? `Rejected${recoveryCase.rejectionReason ? ` — ${recoveryCase.rejectionReason}` : ""}.`
+            : "Waiting for merchant decision.",
+      time:
+        recoveryCase.merchantApprovedAt
+          ? timeAgo(recoveryCase.merchantApprovedAt)
+          : recoveryCase.merchantRejectedAt
+            ? timeAgo(recoveryCase.merchantRejectedAt)
+            : undefined,
+      state: !approvalNeeded
+        ? "done"
+        : recoveryCase.merchantApproved
+          ? "done"
+          : recoveryCase.merchantRejectedAt
+            ? "blocked"
+            : "attention",
     },
     {
-      label: "Executed",
-      done: interventions.some((iv) => iv.executedAt != null),
+      icon: CreditCard,
+      title: "Recovery Action",
+      body: lastExecuted
+        ? `${actionLabel(lastExecuted.action)} · ${interventionResultLabel(lastExecuted)}`
+        : allowedActions.length > 0
+          ? `Ready: ${allowedActions.map(actionLabel).join(", ")}.`
+          : "No executable action right now.",
+      time: lastExecuted?.executedAt ? timeAgo(lastExecuted.executedAt) : undefined,
+      state: lastExecuted
+        ? lastExecuted.result === "SUCCESS"
+          ? "done"
+          : "current"
+        : allowedActions.length > 0
+          ? "current"
+          : "waiting",
     },
     {
-      label:
-        ["RECOVERED", "FAILED", "STOPPED", "REJECTED"].includes(recoveryCase.status)
-          ? humanize(recoveryCase.status)
-          : "Outcome",
-      done: ["RECOVERED", "FAILED", "STOPPED", "REJECTED"].includes(
-        recoveryCase.status
-      ),
-      tone: (["FAILED", "STOPPED", "REJECTED"].includes(recoveryCase.status)
-        ? "failed"
-        : "success") as "failed" | "success",
+      icon: BadgeCheck,
+      title: "Result",
+      body:
+        recoveryCase.status === "RECOVERED"
+          ? `Recovered ${formatINR(totalRecovered)}.`
+          : totalRecovered > 0
+            ? `Partially recovered ${formatINR(totalRecovered)} · ${statusLabel(recoveryCase.status)}.`
+            : statusLabel(recoveryCase.status),
+      time: recoveryCase.resolvedAt ? timeAgo(recoveryCase.resolvedAt) : undefined,
+      state: recoveryCase.status === "RECOVERED"
+        ? "done"
+        : isTerminal
+          ? "blocked"
+          : pendingPaymentLink
+            ? "current"
+            : "waiting",
     },
   ];
 
+  const approvalTone = recoveryCase.merchantRejectedAt
+    ? "border-red-400/30 bg-black"
+    : recoveryCase.merchantApproved
+      ? "border-emerald-400/30 bg-black"
+      : "border-amber-400/30 bg-black";
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/cases" className="text-sm text-emerald-700 hover:text-emerald-800">
-          ← Back to cases
+        <Link
+          href="/cases"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#9DB1FF] hover:text-white"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to cases
         </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold text-slate-900">
-            Recovery Case{" "}
-            <span className="font-mono text-base text-slate-500">
-              …{recoveryCase.id.slice(-8)}
-            </span>
-          </h1>
-          <StatusBadge value={recoveryCase.status} />
-          <StatusBadge value={recoveryCase.priority} />
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-[30px] leading-tight font-semibold tracking-[-0.02em] text-[#F7F9FC]">
+                {recoveryCase.customer.name}
+              </h1>
+              <StatusBadge value={recoveryCase.scenario === "FAILED_PAYMENT" ? recoveryCase.status : recoveryCase.status} dot />
+              <StatusBadge value={recoveryCase.priority} />
+            </div>
+            <p className="mt-1.5 text-sm text-[#A3ADBD]">
+              {scenarioLabel(recoveryCase.scenario)} ·{" "}
+              <span className="font-semibold text-[#F7F9FC]">{formatINR(recoveryCase.amountAtRisk)}</span>{" "}
+              at risk · <span className="font-mono text-[12px] text-[#6F7A89]">{shortId(recoveryCase.id)}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2 border border-[#1A1A1A] bg-black px-4 py-3">
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.08em] text-[#6F7A89] uppercase">Recovered</p>
+              <p className="text-xl font-semibold text-emerald-300 tabular-nums">{formatINR(totalRecovered)}</p>
+            </div>
+            <div className="ml-3 border-l border-white/[0.08] pl-3">
+              <p className="text-[11px] font-semibold tracking-[0.08em] text-[#6F7A89] uppercase">Window</p>
+              <p className={`flex items-center gap-1 text-[13px] font-medium ${evaluation.windowExpired ? "text-red-300" : "text-[#F7F9FC]"}`}>
+                <Clock className="h-3.5 w-3.5" />{windowStatusLabel(recoveryCase.windowExpiresAt)}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       {(awaitingApproval || recoveryCase.merchantApproved || recoveryCase.merchantRejectedAt) && (
-        <section
-          className={`rounded-xl border-2 p-5 shadow-sm ${
-            recoveryCase.merchantRejectedAt
-              ? "border-rose-300 bg-rose-50"
-              : recoveryCase.merchantApproved
-                ? "border-emerald-300 bg-emerald-50"
-                : "border-amber-300 bg-amber-50"
-          }`}
-        >
+        <section className={`border p-5 ${approvalTone}`}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p
-                className={`text-sm font-bold tracking-wide uppercase ${
-                  recoveryCase.merchantRejectedAt
-                    ? "text-rose-800"
-                    : recoveryCase.merchantApproved
-                      ? "text-emerald-800"
-                      : "text-amber-800"
-                }`}
-              >
+              <p className={`text-[12px] font-bold tracking-[0.08em] uppercase ${recoveryCase.merchantRejectedAt ? "text-red-300" : recoveryCase.merchantApproved ? "text-emerald-300" : "text-amber-300"}`}>
                 {recoveryCase.merchantRejectedAt
-                  ? "Recovery Rejected By Merchant"
+                  ? "Recovery rejected by merchant"
                   : recoveryCase.merchantApproved
-                    ? "Merchant Approved · Ready to Execute"
-                    : "Merchant Approval Required"}
+                    ? "Merchant approved · ready to execute"
+                    : "Merchant approval required"}
               </p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-[#F7F9FC] tabular-nums">
                 {formatINR(recoveryCase.amountAtRisk)}{" "}
-                <span className="text-sm font-normal text-slate-500">at risk</span>
+                <span className="text-sm font-normal text-[#A3ADBD]">at risk</span>
               </p>
-              <p className="text-xs text-slate-500">
-                Approval threshold: {formatINR(config.approvalThresholdPaise)} · this
-                case exceeds it, so money-moving actions wait for your decision.
+              <p className="mt-1 text-[12.5px] text-[#A3ADBD]">
+                Approval threshold: {formatINR(config.approvalThresholdPaise)} · money-moving
+                actions wait for your decision.
               </p>
             </div>
-            <div className="min-w-[260px] flex-1 rounded-lg bg-white p-3 shadow-sm">
+            <div className="min-w-[260px] flex-1 border border-[#1A1A1A] bg-black p-3.5">
               {latestDecision ? (
-                <dl className="space-y-1 text-sm">
+                <dl className="space-y-1.5 text-sm">
                   <div className="flex justify-between gap-3">
-                    <dt className="text-slate-400">Recommended action</dt>
-                    <dd className="font-mono font-semibold text-slate-900">
-                      {latestDecision.recommendedAction}
-                    </dd>
+                    <dt className="text-[#6F7A89]">Recommended</dt>
+                    <dd className="font-semibold text-[#F7F9FC]">{actionLabel(latestDecision.recommendedAction)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-slate-400">Confidence</dt>
-                    <dd className="font-semibold text-slate-900">
-                      {Math.round(latestDecision.confidence * 100)}%
-                    </dd>
+                    <dt className="text-[#6F7A89]">Confidence</dt>
+                    <dd className="font-semibold text-[#F7F9FC] tabular-nums">{Math.round(latestDecision.confidence * 100)}%</dd>
                   </div>
                   <div>
-                    <dt className="text-slate-400">Diagnosis</dt>
-                    <dd className="font-mono text-xs text-slate-700">
-                      {latestDecision.diagnosis}
-                    </dd>
+                    <dt className="text-[#6F7A89]">Diagnosis</dt>
+                    <dd className="font-mono text-xs text-[#A3ADBD]">{latestDecision.diagnosis}</dd>
                   </div>
                   <div>
-                    <dt className="text-slate-400">Reason</dt>
-                    <dd className="text-xs text-slate-600">{latestDecision.reasoning}</dd>
+                    <dt className="text-[#6F7A89]">Reason</dt>
+                    <dd className="text-xs leading-relaxed text-[#A3ADBD]">{latestDecision.reasoning}</dd>
                   </div>
                 </dl>
               ) : (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-[#A3ADBD]">
                   Run an AI analysis to see the recommendation before approving.
                 </p>
               )}
             </div>
           </div>
-          <div className="mt-4 border-t border-slate-200 pt-4">
+          <div className="mt-4 border-t border-white/[0.08] pt-4">
             <ApprovalActions
               caseId={recoveryCase.id}
               requiresApproval={awaitingApproval}
@@ -336,163 +435,88 @@ export default async function CaseDetailPage({
         </section>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <ol className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs">
-          {progressStages.map((stage, i) => (
-            <li key={stage.label} className="flex items-center gap-2">
-              {i > 0 && <span aria-hidden className="text-slate-300">→</span>}
-              <span
-                className={`rounded-full px-2.5 py-1 font-medium ${
-                  stage.done
-                    ? stage.tone === "failed"
-                      ? "bg-rose-600 text-white"
-                      : stage.tone === "success"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-emerald-100 text-emerald-800"
-                    : "bg-slate-100 text-slate-400"
-                }`}
-              >
-                {stage.label}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        {/* Timeline */}
+        <Card className="xl:col-span-2">
+          <CardHeader title="Recovery timeline" subtitle="Each stage derives from live case, AI, policy, and intervention state." />
+          <CardBody>
+            <ol className="relative space-y-0">
+              {timeline.map((s, i) => (
+                <li key={s.title} className="relative flex gap-3.5 pb-6 last:pb-0">
+                  {i < timeline.length - 1 && (
+                    <span aria-hidden className="absolute top-8 left-[13px] h-[calc(100%-28px)] w-px bg-[#1A1A1A]" />
+                  )}
+                  <TimelineDot state={s.state} />
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <p className="flex items-center gap-2 text-[13.5px] font-semibold text-[#F7F9FC]">
+                        <s.icon className="h-3.5 w-3.5 text-[#6F7A89]" />
+                        {s.title}
+                      </p>
+                      {s.time && <span className="text-[11.5px] text-[#6F7A89]">{s.time}</span>}
+                    </div>
+                    <p className="mt-1 text-[12.5px] leading-relaxed text-[#A3ADBD]">{s.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </CardBody>
+        </Card>
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionHeading step={1} title="Problem" />
-            <div className="mt-3 flex flex-wrap items-baseline gap-x-6 gap-y-2">
-              <p className="text-base font-medium text-slate-800">
-                {SCENARIO_LABELS[recoveryCase.scenario]}
-              </p>
-              <p className="text-2xl font-bold text-rose-700">
-                {formatINR(recoveryCase.amountAtRisk)}
-                <span className="ml-2 text-xs font-normal text-slate-400">at risk</span>
-              </p>
-              {sourceEvent?.failureReason && (
-                <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">
-                  {sourceEvent.failureReason}
-                </span>
-              )}
-              {sourceEvent?.cartSummary && (
-                <span className="text-sm text-slate-500">{sourceEvent.cartSummary}</span>
-              )}
-              {sourceEvent?.planName && (
-                <span className="text-sm text-slate-500">{sourceEvent.planName}</span>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionHeading step={2} title="Context" />
-            <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
-              <div>
-                <dt className="text-xs text-slate-400">Customer</dt>
-                <dd className="font-medium text-slate-900">{recoveryCase.customer.name}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-400">Successful payments</dt>
-                <dd className="font-medium text-emerald-700">
-                  {capturedAgg._count._all} ({formatINR(capturedAgg._sum.amount ?? 0)})
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-400">Failed payments</dt>
-                <dd className="font-medium text-rose-700">{failedCount}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-400">Subscriptions</dt>
-                <dd className="font-medium text-slate-900">
-                  {activeSubs} active · {pastDueSubs} past due
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-400">Previous attempts</dt>
-                <dd className="font-medium text-slate-900">
-                  {recoveryCase.retryCount} retries · {recoveryCase.contactCount} contacts
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-400">Recovery window</dt>
-                <dd className={`font-medium ${evaluation.windowExpired ? "text-rose-700" : "text-slate-900"}`}>
-                  {evaluation.windowExpired
-                    ? windowStatusLabel(recoveryCase.windowExpiresAt)
-                    : `${evaluation.retriesRemaining} retries left · ${windowStatusLabel(recoveryCase.windowExpiresAt)}`}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <div className="rounded-xl border border-violet-100 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <SectionHeading step={3} title="AI Reasoning" />
-              {latestDecision && (
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    latestDecision.provider.includes("mock")
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-violet-100 text-violet-700"
-                  }`}
-                >
-                  {latestDecision.provider.includes("mock")
-                    ? "Demo / Mock AI Mode"
-                    : `${latestDecision.provider} · ${latestDecision.model}`}
-                </span>
-              )}
-            </div>
-            {latestDecision ? (
-              <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
-                <div>
-                  <dt className="text-xs text-slate-400">Diagnosis</dt>
-                  <dd className="font-mono text-xs font-semibold text-slate-900">
-                    {latestDecision.diagnosis}
+        {/* Summary */}
+        <aside className="space-y-4">
+          <Card>
+            <CardHeader title="Case summary" />
+            <CardBody className="pt-4">
+              <dl className="space-y-2.5 text-[13px]">
+                {[
+                  ["Amount at risk", formatINR(recoveryCase.amountAtRisk)],
+                  ["Customer", recoveryCase.customer.name],
+                  ["Scenario", scenarioLabel(recoveryCase.scenario)],
+                  ["Retries", `${recoveryCase.retryCount} used · ${evaluation.retriesRemaining} left`],
+                  ["Contacts", `${recoveryCase.contactCount} used · ${evaluation.contactsRemaining} left`],
+                  ["AI risk", latestDecision ? latestDecision.riskLevel.charAt(0) + latestDecision.riskLevel.slice(1).toLowerCase() : "Not analyzed"],
+                  ["Approval", !approvalNeeded ? "Not required" : recoveryCase.merchantApproved ? "Approved" : recoveryCase.merchantRejectedAt ? "Rejected" : "Required"],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex items-baseline justify-between gap-3">
+                    <dt className="text-[#6F7A89]">{k}</dt>
+                    <dd className="text-right font-medium text-[#F7F9FC]">{v}</dd>
+                  </div>
+                ))}
+                {(sourceEvent.failureReason || sourceEvent.cartSummary || sourceEvent.planName) && (
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-[#6F7A89]">Source</dt>
+                    <dd className="text-right font-mono text-[12px] text-[#A3ADBD]">
+                      {sourceEvent.failureReason ?? sourceEvent.cartSummary ?? sourceEvent.planName}
+                    </dd>
+                  </div>
+                )}
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-[#6F7A89]">History</dt>
+                  <dd className="text-right font-medium text-[#F7F9FC] tabular-nums">
+                    {capturedAgg._count._all} paid ({formatINR(capturedAgg._sum.amount ?? 0)}) · {failedCount} failed
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-xs text-slate-400">Risk</dt>
-                  <dd><StatusBadge value={latestDecision.riskLevel} /></dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-400">Recommendation</dt>
-                  <dd className="font-semibold text-emerald-700">
-                    {humanize(latestDecision.recommendedAction)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-400">Confidence</dt>
-                  <dd className="font-semibold text-slate-900">
-                    {Math.round(latestDecision.confidence * 100)}%
-                  </dd>
-                </div>
-                <div className="sm:col-span-2 lg:col-span-4">
-                  <dt className="text-xs text-slate-400">Reasoning</dt>
-                  <dd className="mt-1 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                    {latestDecision.reasoning}
-                  </dd>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-[#6F7A89]">Subscriptions</dt>
+                  <dd className="text-right font-medium text-[#F7F9FC] tabular-nums">{activeSubs} active · {pastDueSubs} past due</dd>
                 </div>
               </dl>
-            ) : (
-              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
-                No AI analysis yet for this case.
-                <AnalyzeCaseButton caseId={recoveryCase.id} />
-              </div>
-            )}
-          </div>
+            </CardBody>
+          </Card>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionHeading step={4} title="Policy Decision" />
-            <p
-              className={`mt-3 rounded-lg p-3 text-sm ${
-                evaluation.eligible
-                  ? "bg-emerald-50 text-emerald-800"
-                  : "bg-rose-50 text-rose-800"
-              }`}
-            >
-              {evaluation.summaryReason}
-            </p>
-            <div className="mt-4">
+          <Card>
+            <CardHeader title="Take action" subtitle="Existing controls — policy enforced server-side." />
+            <CardBody className="space-y-4 pt-4">
+              {!latestDecision && (
+                <div className="border border-[#1A1A1A] bg-black p-3 text-[13px] text-[#A3ADBD]">
+                  <p className="mb-2">No AI analysis yet for this case.</p>
+                  <AnalyzeCaseButton caseId={recoveryCase.id} />
+                </div>
+              )}
+              <div className={`border p-3 text-[13px] leading-relaxed ${evaluation.eligible ? "border-emerald-400/30 bg-black text-emerald-200" : "border-red-400/30 bg-black text-red-200"}`}>
+                {evaluation.summaryReason}
+              </div>
               <CaseActions
                 caseId={recoveryCase.id}
                 eligible={evaluation.eligible}
@@ -500,192 +524,117 @@ export default async function CaseDetailPage({
                 blocked={blocked}
                 requiresApproval={evaluation.requiresApproval}
                 merchantApproved={recoveryCase.merchantApproved}
+                paymentPending={
+                  pendingPaymentLink
+                    ? {
+                        id: pendingPaymentLink.providerReference,
+                        url: pendingPaymentLink.paymentLinkUrl,
+                      }
+                    : null
+                }
               />
-            </div>
-          </div>
-
-          {pendingPaymentLink && recoveryCase.status === "IN_PROGRESS" && (
-            <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold tracking-wide text-emerald-800 uppercase">
-                    Awaiting Customer Payment
+              {pendingPaymentLink && recoveryCase.status === "IN_PROGRESS" && (
+                <div className="border border-emerald-400/25 bg-black p-4">
+                  <p className="flex items-center gap-1.5 text-[12px] font-bold tracking-[0.06em] text-emerald-300 uppercase">
+                    <span className="pulse-dot circle h-1.5 w-1.5 bg-emerald-400" />
+                    Awaiting customer payment
                   </p>
-                  <p className="mt-1 text-sm text-emerald-800">
-                    A Razorpay Test Mode payment link was created for{" "}
-                    {formatINR(recoveryCase.amountAtRisk)}. The case is marked
-                    Recovered automatically once the customer pays.
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-emerald-100/90">
+                    Razorpay Test Mode link for {formatINR(recoveryCase.amountAtRisk)}. The case
+                    becomes Recovered automatically once paid.
                   </p>
-                  {pendingPaymentLink.notes && (
-                    <p className="mt-1 text-xs text-emerald-700">
-                      {pendingPaymentLink.notes}
-                    </p>
-                  )}
+                  <p className="mt-1 text-[12px] text-[#6F7A89]">
+                    Payment status: waiting for confirmation.
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <a
+                      href={pendingPaymentLink.paymentLinkUrl!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 bg-[#5B7CFF] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#4A6DF5]"
+                    >
+                      Open Payment Link <ArrowUpRight className="h-3.5 w-3.5" />
+                    </a>
+                    <CheckPaymentButton caseId={recoveryCase.id} />
+                  </div>
+                  <PaymentStatusPoller caseId={recoveryCase.id} />
                 </div>
-                <a
-                  href={pendingPaymentLink.paymentLinkUrl!}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                  Open Payment Link ↗
-                </a>
-              </div>
-            </div>
-          )}
-
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <SectionHeading step={5} title="Action & Result" />
-            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs text-slate-400">Last action executed</p>
-                <p className="mt-1 text-sm font-medium text-slate-900">
-                  {lastExecuted
-                    ? `${humanize(lastExecuted.action)} · ${lastExecuted.result?.replace(/_/g, " ") ?? "pending"}`
-                    : "No actions executed yet"}
-                </p>
-                {lastExecuted?.notes && (
-                  <p className="mt-0.5 text-xs text-slate-400">{lastExecuted.notes}</p>
-                )}
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs text-slate-400">Result</p>
-                <p
-                  className={`mt-1 text-lg font-bold ${
-                    totalRecovered > 0 ? "text-emerald-700" : "text-slate-700"
-                  }`}
-                >
-                  {recoveryCase.status === "RECOVERED"
-                    ? `Recovered ${formatINR(totalRecovered)}`
-                    : totalRecovered > 0
-                      ? `Partially recovered ${formatINR(totalRecovered)}`
-                      : humanize(recoveryCase.status)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <SectionHeading step={6} title="Audit Trail" />
-            </div>
-            <ol className="divide-y divide-slate-100">
-              {auditLogs.map((log) => (
-                <li key={log.id} className="flex items-start gap-3 px-5 py-3">
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-slate-800">{log.event}</p>
-                    <p className="truncate text-xs text-slate-400">
-                      {log.actor.replace(/_/g, " ")} · {timeAgo(log.createdAt)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-              {auditLogs.length === 0 && (
-                <li className="px-5 py-6 text-center text-sm text-slate-400">
-                  No audit entries yet.
-                </li>
               )}
-            </ol>
-          </div>
-        </div>
-
-        <aside className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs text-slate-500">Amount at Risk</p>
-              <p className="mt-1 text-lg font-semibold text-rose-700">
-                {formatINR(recoveryCase.amountAtRisk)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs text-slate-500">Recovered</p>
-              <p className="mt-1 text-lg font-semibold text-emerald-700">
-                {formatINR(totalRecovered)}
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">
-              Recovery Policy (deterministic)
-            </h2>
-            <dl className="mt-3 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Max retries</dt>
-                <dd className="font-medium">
-                  {config.maxRetries} ({evaluation.retriesRemaining} left)
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Max contacts</dt>
-                <dd className="font-medium">
-                  {config.maxContactAttempts} ({evaluation.contactsRemaining} left)
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Window</dt>
-                <dd className="font-medium">{config.recoveryWindowHours}h</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Approval threshold</dt>
-                <dd className="font-medium">{formatINR(config.approvalThresholdPaise)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Merchant approved</dt>
-                <dd className="font-medium">
-                  {recoveryCase.merchantApproved ? "Yes" : "No"}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <h2 className="border-b border-slate-200 px-5 py-4 text-sm font-semibold text-slate-900">
-              Intervention History
-            </h2>
-            <ul className="divide-y divide-slate-100">
-              {interventions.map((iv) => (
-                <li key={iv.id} className="px-5 py-3.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800">
-                        {humanize(iv.action)}
-                        <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
-                          {iv.status.toLowerCase()}
-                        </span>
-                      </p>
-                      <p className="text-xs text-slate-400">{iv.notes}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-medium text-slate-600">
-                        {iv.result?.replace(/_/g, " ") ?? "PENDING"}
-                      </p>
-                      {iv.recoveredAmount > 0 && (
-                        <p className="text-xs font-semibold text-emerald-700">
-                          +{formatINR(iv.recoveredAmount)}
-                        </p>
-                      )}
-                      <p className="text-xs text-slate-400">
-                        {iv.executedAt
-                          ? timeAgo(iv.executedAt)
-                          : iv.scheduledAt && dueMinutes >= 0
-                            ? `due in ${dueMinutes}m`
-                            : ""}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-              {interventions.length === 0 && (
-                <li className="px-5 py-8 text-center text-sm text-slate-400">
-                  No interventions yet.
-                </li>
-              )}
-            </ul>
-          </div>
+            </CardBody>
+          </Card>
         </aside>
       </section>
+
+      {/* Interventions + audit */}
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader title="Interventions" subtitle={`${interventions.length} recorded`} />
+          <CardBody className="pt-2">
+            {interventions.length === 0 ? (
+              <EmptyState title="No interventions yet" body="Executed and scheduled recovery actions will appear here." />
+            ) : (
+              <ul className="divide-y divide-[#171717]">
+                {interventions.map((iv) => (
+                  <li key={iv.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-2 text-[13.5px] font-medium text-[#F7F9FC]">
+                        {actionLabel(iv.action)}
+                        <StatusBadge value={iv.status} />
+                      </p>
+                      {iv.notes && <p className="mt-0.5 truncate text-[12px] text-[#6F7A89]">{iv.notes}</p>}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[12px] font-medium text-[#A3ADBD]">{interventionResultLabel(iv)}</p>
+                      {iv.recoveredAmount > 0 && (
+                        <p className="text-[12px] font-semibold text-emerald-300 tabular-nums">+{formatINR(iv.recoveredAmount)}</p>
+                      )}
+                      <p className="text-[11.5px] text-[#6F7A89]">
+                        {iv.executedAt ? timeAgo(iv.executedAt) : iv.scheduledAt && dueMinutes >= 0 ? `due in ${dueMinutes}m` : ""}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="Audit trail" subtitle={`${auditLogs.length} events`} />
+          <CardBody className="pt-2">
+            {auditLogs.length === 0 ? (
+              <EmptyState title="No audit entries yet" body="Every action on this case is recorded here." />
+            ) : (
+              <ol className="max-h-[380px] space-y-0 overflow-y-auto pr-1">
+                {auditLogs.map((log) => (
+                  <li key={log.id} className="relative flex gap-3 pb-4 last:pb-0">
+                    <span aria-hidden className="circle mt-1.5 h-1.5 w-1.5 shrink-0 bg-[#5B7CFF]" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12.5px] font-medium text-[#F7F9FC]">{eventLabel(log.event)}</p>
+                      <p className="text-[11.5px] text-[#6F7A89]">
+                        {log.actor.charAt(0) + log.actor.slice(1).toLowerCase().replace("_", " ")} · {timeAgo(log.createdAt)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </CardBody>
+        </Card>
+      </section>
+
+      <details className="border border-[#1A1A1A] bg-black px-5 py-4">
+        <summary className="cursor-pointer text-[13px] font-semibold text-[#A3ADBD] hover:text-white">
+          Technical details
+        </summary>
+        <dl className="mt-3 grid grid-cols-1 gap-2 font-mono text-[11.5px] text-[#6F7A89] sm:grid-cols-2">
+          <div><dt className="uppercase tracking-wide">Case ID</dt><dd className="break-all text-[#A3ADBD]">{recoveryCase.id}</dd></div>
+          {recoveryCase.transactionId && <div><dt className="uppercase tracking-wide">Transaction ID</dt><dd className="break-all text-[#A3ADBD]">{recoveryCase.transactionId}</dd></div>}
+          {recoveryCase.checkoutSessionId && <div><dt className="uppercase tracking-wide">Checkout session</dt><dd className="break-all text-[#A3ADBD]">{recoveryCase.checkoutSessionId}</dd></div>}
+          {recoveryCase.subscriptionId && <div><dt className="uppercase tracking-wide">Subscription</dt><dd className="break-all text-[#A3ADBD]">{recoveryCase.subscriptionId}</dd></div>}
+          {pendingPaymentLink?.providerReference && <div><dt className="uppercase tracking-wide">Provider reference</dt><dd className="break-all text-[#A3ADBD]">{pendingPaymentLink.providerReference}</dd></div>}
+          <div><dt className="uppercase tracking-wide">Customer ID</dt><dd className="break-all text-[#A3ADBD]">{recoveryCase.customerId}</dd></div>
+        </dl>
+      </details>
     </div>
   );
 }

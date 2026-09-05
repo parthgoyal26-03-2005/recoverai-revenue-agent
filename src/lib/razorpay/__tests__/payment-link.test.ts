@@ -238,6 +238,79 @@ describe("handlePaymentLinkPaid (Phase 2 integration)", () => {
     expect(successAudits).toHaveLength(1);
   });
 
+  it("original FAILED transaction remains FAILED; success is a separate CAPTURED txn", async () => {
+    const { kase, iv } = await setupRecoveryCase(100_000);
+    const originalTxn = await prisma.transaction.findFirst({
+      where: { recoveryCaseId: kase.id },
+    });
+    expect(originalTxn).not.toBeNull();
+    expect(originalTxn!.status).toBe("FAILED");
+
+    const payment = makePayment(`pay_separate_${Date.now()}`, 100_000);
+    const result = await handlePaymentLinkPaid(
+      prisma,
+      merchantId,
+      iv.providerReference!,
+      payment,
+      `evt_separate_${Date.now()}`
+    );
+    expect(result.ok).toBe(true);
+
+    const stillFailed = await prisma.transaction.findUnique({
+      where: { id: originalTxn!.id },
+    });
+    expect(stillFailed!.status).toBe("FAILED");
+
+    const separate = await prisma.transaction.findUnique({
+      where: { razorpayPaymentId: payment.id },
+    });
+    expect(separate).not.toBeNull();
+    expect(separate!.id).not.toBe(originalTxn!.id);
+    expect(separate!.status).toBe("CAPTURED");
+  });
+
+  it("uncaptured payment status is rejected and does not recover", async () => {
+    const { kase, iv } = await setupRecoveryCase(100_000);
+    const payment = { ...makePayment(`pay_auth_${Date.now()}`, 100_000), status: "authorized" };
+
+    const result = await handlePaymentLinkPaid(
+      prisma,
+      merchantId,
+      iv.providerReference!,
+      payment,
+      `evt_auth_${Date.now()}`
+    );
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(400);
+
+    const recoveredCase = await prisma.recoveryCase.findUnique({
+      where: { id: kase.id },
+    });
+    expect(recoveredCase!.status).not.toBe("RECOVERED");
+  });
+
+  it("duplicate paid events do not duplicate success audits", async () => {
+    const { kase, iv } = await setupRecoveryCase(100_000);
+    const p1 = makePayment(`pay_conf_a_${Date.now()}`, 100_000);
+    const p2 = makePayment(`pay_conf_b_${Date.now()}`, 100_000);
+
+    await handlePaymentLinkPaid(
+      prisma, merchantId, iv.providerReference!, p1, `evt_conf_a_${Date.now()}`
+    );
+    await handlePaymentLinkPaid(
+      prisma, merchantId, iv.providerReference!, p2, `evt_conf_b_${Date.now()}`
+    );
+
+    const confirmed = await prisma.auditLog.findMany({
+      where: { recoveryCaseId: kase.id, event: "RECOVERY_PAYMENT_CONFIRMED" },
+    });
+    expect(confirmed).toHaveLength(1);
+    const success = await prisma.auditLog.findMany({
+      where: { recoveryCaseId: kase.id, event: "RECOVERY_SUCCESS" },
+    });
+    expect(success).toHaveLength(1);
+  });
+
   it("unknown payment link returns 404 and does not create recovery", async () => {
     const result = await handlePaymentLinkPaid(
       prisma,

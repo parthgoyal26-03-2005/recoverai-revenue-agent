@@ -34,11 +34,11 @@ export function AnalyzeCaseButton({ caseId }: { caseId: string }) {
         type="button"
         onClick={analyze}
         disabled={busy}
-        className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+        className="bg-[#5B7CFF] px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#4A6DF5] disabled:opacity-50"
       >
         {busy ? "Analyzing…" : "Analyze with AI"}
       </button>
-      {error && <span className="text-sm text-rose-700">{error}</span>}
+      {error && <span className="text-sm text-red-300">{error}</span>}
     </div>
   );
 }

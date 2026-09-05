@@ -206,6 +206,28 @@ describe("RazorpayProvider", () => {
     expect(result.notes).toContain("boom");
   });
 
+  it("returns typed RAZORPAY_TEST_LINK_LIMIT_REACHED for the 30-link quota", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          error: { description: "test mode limit of 30 reached for payment_link" },
+        }),
+      }))
+    );
+    const result = await provider.executeAction({
+      recoveryCase: makeCase(),
+      action: "RETRY_PAYMENT",
+      attemptNumber: 1,
+      now: new Date(),
+    });
+    expect(result.result).toBe("FAILURE");
+    expect(result.paymentLink).toBeNull();
+    expect(result.errorCode).toBe("RAZORPAY_TEST_LINK_LIMIT_REACHED");
+  });
+
   it("returns FAILURE when razorpay is not configured (no silent success)", async () => {
     delete process.env.RAZORPAY_KEY_ID;
     delete process.env.RAZORPAY_KEY_SECRET;

@@ -88,11 +88,11 @@ export function BatchRunner() {
   }
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="border border-[#1A1A1A] bg-black p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900">Run Recovery Batch</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <h2 className="text-[15px] font-semibold tracking-tight text-[#F7F9FC]">Run Recovery Batch</h2>
+          <p className="mt-0.5 text-[12.5px] text-[#A3ADBD]">
             Processes every active case through the deterministic policy engine —
             only policy-allowed actions are executed.
           </p>
@@ -101,7 +101,7 @@ export function BatchRunner() {
           type="button"
           onClick={runBatch}
           disabled={running}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="bg-[#5B7CFF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#4A6DF5] disabled:opacity-50"
         >
           {running ? "Running…" : "Run Recovery Batch"}
         </button>
@@ -112,21 +112,21 @@ export function BatchRunner() {
           {STEPS.map((step, i) => (
             <li key={step} className="flex items-center gap-2 text-sm">
               <span
-                className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
+                className={`circle flex h-4 w-4 items-center justify-center text-[10px] font-bold ${
                   i < activeStep
-                    ? "bg-emerald-600 text-white"
+                    ? "bg-emerald-400 text-[#070A10]"
                     : i === activeStep
-                      ? "bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500"
-                      : "bg-slate-100 text-slate-400"
+                      ? "bg-[#5B7CFF]/20 text-[#9DB1FF] ring-2 ring-[#5B7CFF]"
+                      : "bg-white/[0.06] text-[#6F7A89]"
                 }`}
               >
                 {i < activeStep ? "✓" : i + 1}
               </span>
-              <span className={i <= activeStep ? "text-slate-800" : "text-slate-400"}>
+              <span className={i <= activeStep ? "text-[#F7F9FC]" : "text-[#6F7A89]"}>
                 {step}
               </span>
               {i === 2 && progress.total > 0 && (
-                <span className="ml-auto text-xs text-slate-500">
+                <span className="ml-auto text-xs text-[#A3ADBD]">
                   {progress.processed}/{progress.total} cases processed
                 </span>
               )}
@@ -136,14 +136,14 @@ export function BatchRunner() {
       )}
 
       {error && (
-        <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+        <div className="mt-4 border border-red-400/25 bg-black p-3 text-sm text-red-300">
           {error}
         </div>
       )}
 
       {!running && summary && (
-        <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
-          <p className="text-sm font-semibold text-emerald-900">Recovery Batch Complete</p>
+        <div className="mt-5 border border-emerald-400/25 bg-black p-4">
+          <p className="text-sm font-semibold text-emerald-300">Recovery Batch Complete</p>
           <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
             {[
               { label: "Cases analyzed", value: summary.casesAnalyzed },
@@ -154,27 +154,27 @@ export function BatchRunner() {
               { label: "Approval required", value: summary.approvalRequired },
             ].map((item) => (
               <div key={item.label}>
-                <p className="text-lg font-semibold text-slate-900">{item.value}</p>
-                <p className="text-xs text-slate-500">{item.label}</p>
+                <p className="text-lg font-semibold text-[#F7F9FC] tabular-nums">{item.value}</p>
+                <p className="text-xs text-[#6F7A89]">{item.label}</p>
               </div>
             ))}
           </div>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-[#6F7A89]">
             Scheduled retries: {summary.scheduled} · Escalated: {summary.escalated} · Stopped:{" "}
             {summary.stopped}
           </p>
-          <dl className="mt-4 grid grid-cols-1 gap-3 border-t border-emerald-200 pt-3 sm:grid-cols-3">
+          <dl className="mt-4 grid grid-cols-1 gap-3 border-t border-[#1A1A1A] pt-3 sm:grid-cols-3">
             <div>
-              <dt className="text-xs text-slate-500">Revenue at risk (batch)</dt>
-              <dd className="text-lg font-semibold text-rose-700">{inr(summary.revenueAtRiskPaise)}</dd>
+              <dt className="text-xs text-[#6F7A89]">Revenue at risk (batch)</dt>
+              <dd className="text-lg font-semibold text-amber-300 tabular-nums">{inr(summary.revenueAtRiskPaise)}</dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-500">Revenue recovered</dt>
-              <dd className="text-lg font-semibold text-emerald-700">{inr(summary.revenueRecoveredPaise)}</dd>
+              <dt className="text-xs text-[#6F7A89]">Revenue recovered</dt>
+              <dd className="text-lg font-semibold text-emerald-300 tabular-nums">{inr(summary.revenueRecoveredPaise)}</dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-500">Recovery rate</dt>
-              <dd className="text-lg font-semibold text-slate-900">{summary.recoveryRatePct}%</dd>
+              <dt className="text-xs text-[#6F7A89]">Recovery rate</dt>
+              <dd className="text-lg font-semibold text-[#F7F9FC] tabular-nums">{summary.recoveryRatePct}%</dd>
             </div>
           </dl>
         </div>

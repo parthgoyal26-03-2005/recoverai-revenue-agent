@@ -51,7 +51,26 @@ export class RecoveryTestStore implements RecoveryStore, AIAnalysisStore {
     return [] as DueIntervention[];
   }
 
-  async updateIntervention() {}
+  async updateIntervention(
+    id: string,
+    data: Partial<import("@/generated/prisma/client").RecoveryIntervention>
+  ) {
+    const entry = this.interventions.find((iv) => iv.id === id);
+    if (entry) Object.assign(entry, data);
+  }
+
+  async findPendingRazorpayIntervention(recoveryCaseId: string) {
+    const found = [...this.interventions]
+      .reverse()
+      .find(
+        (iv) =>
+          iv.recoveryCaseId === recoveryCaseId &&
+          (iv as { provider?: string | null }).provider === "razorpay" &&
+          iv.status === "AWAITING_PAYMENT" &&
+          iv.result === "PENDING"
+      );
+    return (found ?? null) as unknown as import("@/generated/prisma/client").RecoveryIntervention | null;
+  }
 
   async createAIDecision(data: NewAIDecisionData) {
     const id = `aid_${++this.seq}`;

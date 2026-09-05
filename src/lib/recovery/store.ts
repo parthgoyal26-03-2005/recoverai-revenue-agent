@@ -44,6 +44,7 @@ export type CaseUpdateData = {
   merchantApprovedAt?: Date;
   merchantRejectedAt?: Date;
   rejectionReason?: string | null;
+  windowExpiresAt?: Date;
 };
 
 export type AuditLogData = {
@@ -68,6 +69,14 @@ export interface RecoveryStore {
     id: string,
     data: Partial<RecoveryIntervention>
   ): Promise<void>;
+  /**
+   * Latest Razorpay intervention still awaiting customer payment
+   * (provider=razorpay, status=AWAITING_PAYMENT, result=PENDING), if any.
+   * Used to enforce at most one outstanding recovery payment per case.
+   */
+  findPendingRazorpayIntervention(
+    recoveryCaseId: string
+  ): Promise<RecoveryIntervention | null>;
 }
 
 export function createPrismaStore(prisma: PrismaClient): RecoveryStore {
@@ -158,6 +167,17 @@ export function createPrismaStore(prisma: PrismaClient): RecoveryStore {
     },
     async updateIntervention(id, data) {
       await prisma.recoveryIntervention.update({ where: { id }, data });
+    },
+    async findPendingRazorpayIntervention(recoveryCaseId) {
+      return prisma.recoveryIntervention.findFirst({
+        where: {
+          recoveryCaseId,
+          provider: "razorpay",
+          status: "AWAITING_PAYMENT",
+          result: "PENDING",
+        },
+        orderBy: { createdAt: "desc" },
+      });
     },
   };
 }

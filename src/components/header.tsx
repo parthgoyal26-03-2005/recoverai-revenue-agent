@@ -1,56 +1,66 @@
-function currentAiLabel(): string {
+import { FlaskConical } from "lucide-react";
+import { clsx } from "clsx";
+
+function currentAiLabel(): { short: string; full: string; isMock: boolean } {
   const selected = process.env.AI_PROVIDER?.trim().toLowerCase();
-  if (selected === "gemini" && process.env.GEMINI_API_KEY) return "Gemini";
-  if (selected === "groq" && process.env.GROQ_API_KEY) return "Groq";
-  if (!selected && process.env.GEMINI_API_KEY) return "Gemini";
-  if (!selected && process.env.GROQ_API_KEY) return "Groq";
-  if (selected === "gemini") return "Gemini";
-  if (selected === "groq") return "Groq";
-  return "Mock";
+  if (selected === "gemini" && process.env.GEMINI_API_KEY)
+    return { short: "Gemini", full: "AI: Gemini", isMock: false };
+  if (selected === "groq" && process.env.GROQ_API_KEY)
+    return { short: "Groq", full: "AI: Groq", isMock: false };
+  if (!selected && process.env.GEMINI_API_KEY)
+    return { short: "Gemini", full: "AI: Gemini", isMock: false };
+  if (!selected && process.env.GROQ_API_KEY)
+    return { short: "Groq", full: "AI: Groq", isMock: false };
+  if (selected === "gemini") return { short: "Gemini", full: "AI: Gemini", isMock: false };
+  if (selected === "groq") return { short: "Groq", full: "AI: Groq", isMock: false };
+  return { short: "Demo", full: "AI: Demo", isMock: true };
 }
 
-function currentRecoveryLabel(): string {
+function currentRecovery(): { label: string; isRazorpay: boolean } {
   const selected = process.env.PAYMENT_PROVIDER?.trim().toLowerCase();
-  if (selected === "razorpay") return "Razorpay Test Mode";
-  return "Simulation Mode";
+  if (selected === "razorpay")
+    return { label: "Razorpay Test", isRazorpay: true };
+  return { label: "Simulation", isRazorpay: false };
 }
 
 export function Header() {
-  const aiLabel = currentAiLabel();
-  const recoveryLabel = currentRecoveryLabel();
-  const isMock = aiLabel === "Mock";
+  const ai = currentAiLabel();
+  const recovery = currentRecovery();
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-200 bg-white/80 px-4 pl-16 backdrop-blur sm:px-6 lg:pl-6">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-slate-500">
+    <header className="sticky top-0 z-20 border-b border-[#171717] bg-black">
+      <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center justify-between gap-3 px-4 pl-16 sm:px-6 lg:px-8 lg:pl-8">
+        <p className="truncate text-[13px] font-medium text-[#A3ADBD]">
           Acme Retail Pvt Ltd
         </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <span
-          className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline ${
-            isMock
-              ? "bg-amber-100 text-amber-800"
-              : "bg-violet-100 text-violet-700"
-          }`}
-          title={`AI Provider: ${aiLabel}`}
-        >
-          AI: {isMock ? "Mock / Demo" : aiLabel}
-        </span>
-        <span
-          className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline ${
-            recoveryLabel === "Razorpay Test Mode"
-              ? "bg-emerald-100 text-emerald-800"
-              : "bg-slate-100 text-slate-600"
-          }`}
-          title={`Payment Provider: ${recoveryLabel}`}
-        >
-          Recovery: {recoveryLabel}
-        </span>
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
-          AR
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            title={ai.full}
+            className={clsx(
+              "hidden border bg-black px-2 py-1 text-[11px] font-semibold tracking-[0.04em] uppercase sm:inline",
+              ai.isMock
+                ? "border-amber-400/40 text-amber-300"
+                : "border-[#5B7CFF]/50 text-[#9DB1FF]"
+            )}
+          >
+            {ai.full}
+          </span>
+          <span
+            title={`Recovery: ${recovery.isRazorpay ? "Razorpay Test Mode" : "Simulation Mode"}`}
+            className={clsx(
+              "hidden border bg-black px-2 py-1 text-[11px] font-semibold tracking-[0.04em] uppercase sm:inline",
+              recovery.isRazorpay
+                ? "border-emerald-400/40 text-emerald-300"
+                : "border-white/15 text-[#A3ADBD]"
+            )}
+          >
+            Recovery: {recovery.label}
+          </span>
+          <span className="inline-flex items-center gap-1 border border-white/15 bg-black px-2 py-1 text-[11px] font-semibold tracking-[0.04em] text-[#A3ADBD] uppercase">
+            <FlaskConical className="h-3.5 w-3.5" />
+            Test Mode
+          </span>
+        </div>
       </div>
     </header>
   );

@@ -209,13 +209,47 @@ export async function handlePaymentFailed(
   };
 }
 
-export async function handlePaymentLinkPaid(
+export type ConfirmRecoveryPaymentInput = {
+  paymentLinkId: string;
+  paymentId: string;
+  amount?: number;
+  currency?: string;
+  /** Razorpay payment status — must be "captured" to confirm. */
+  paymentStatus?: string;
+  eventId: string;
+  eventType: string;
+  /** Payment-link notes, when available (ownership cross-check). */
+  linkNotes?: Record<string, unknown>;
+};
+
+export type ConfirmRecoveryPaymentResult = {
+  ok: boolean;
+  status: number;
+  error?: string;
+  caseId?: string;
+  recoveredAmountPaise?: number;
+  alreadyRecovered?: boolean;
+};
+
+/**
+ * Shared idempotent recovery-payment confirmation.
+ *
+ * Used by BOTH the `payment_link.paid` webhook and the explicit
+ * payment-status sync endpoint — there is exactly one implementation of
+ * recovery-completion logic. Only server-verified Razorpay information may
+ * mark a case recovered; browser claims never reach this function.
+ *
+ * Safe to call repeatedly: already-recovered cases return success without
+ * touching amounts, transactions, or audit logs.
+ */
+export async function confirmRecoveryPayment(
   prisma: PrismaClient,
   merchantId: string,
-  paymentLinkId: string,
-  payment: PaymentLinkPaidPayload["payment"],
-  eventId: string
-): Promise<PaymentLinkPaidResult> {
+  input: ConfirmRecoveryPaymentInput
+): Promise<ConfirmRecoveryPaymentResult> {
+  const { paymentLinkId, paymentId, eventId, eventType } = input;
+
+  // 1. Find the intervention that owns this payment link.
   const intervention = await prisma.recoveryIntervention.findFirst({
     where: {
       provider: "razorpay",
@@ -223,7 +257,6 @@ export async function handlePaymentLinkPaid(
     },
     include: { recoveryCase: true },
   });
-
   if (!intervention) {
     return {
       ok: false,
@@ -232,6 +265,7 @@ export async function handlePaymentLinkPaid(
     };
   }
 
+  // 2-3. Verify merchant ownership and the recovery case.
   const recoveryCase = intervention.recoveryCase;
   if (recoveryCase.merchantId !== merchantId) {
     return {
@@ -241,18 +275,64 @@ export async function handlePaymentLinkPaid(
     };
   }
 
+  // Idempotency: already recovered → success without side effects.
   if (intervention.result === "SUCCESS" || recoveryCase.status === "RECOVERED") {
-    return { ok: true, status: 200, caseId: recoveryCase.id };
+    return {
+      ok: true,
+      status: 200,
+      caseId: recoveryCase.id,
+      recoveredAmountPaise: intervention.recoveredAmount,
+      alreadyRecovered: true,
+    };
   }
 
-  const amount = typeof payment.amount === "number" ? payment.amount : NaN;
+  // 4-6. Validate amount, currency, capture state, and link ownership.
+  const amount = typeof input.amount === "number" ? input.amount : NaN;
   const currency =
-    typeof payment.currency === "string" && payment.currency.length > 0
-      ? payment.currency
+    typeof input.currency === "string" && input.currency.length > 0
+      ? input.currency
       : "INR";
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return { ok: false, status: 400, error: "Invalid payment amount." };
+  }
+
+  if (input.paymentStatus !== "captured") {
+    return {
+      ok: false,
+      status: 400,
+      error: "Payment is not captured; recovery cannot be confirmed.",
+    };
+  }
+
+  const notesCaseId = input.linkNotes?.recoverai_case_id;
+  if (
+    typeof notesCaseId === "string" &&
+    notesCaseId.length > 0 &&
+    notesCaseId !== recoveryCase.id
+  ) {
+    await prisma.auditLog.create({
+      data: {
+        recoveryCaseId: recoveryCase.id,
+        event: "RECOVERY_PAYMENT_AMOUNT_MISMATCH",
+        actor: "SYSTEM",
+        metadata: {
+          source: "razorpay",
+          eventType,
+          razorpayEventId: eventId,
+          paymentLinkId,
+          expectedAmount: recoveryCase.amountAtRisk,
+          actualAmount: amount,
+          currency,
+          reason: "payment link ownership mismatch",
+        },
+      },
+    });
+    return {
+      ok: false,
+      status: 400,
+      error: "Payment link does not belong to this recovery case.",
+    };
   }
 
   if (amount !== recoveryCase.amountAtRisk || currency !== "INR") {
@@ -263,7 +343,7 @@ export async function handlePaymentLinkPaid(
         actor: "SYSTEM",
         metadata: {
           source: "razorpay",
-          eventType: "payment_link.paid",
+          eventType,
           razorpayEventId: eventId,
           paymentLinkId,
           expectedAmount: recoveryCase.amountAtRisk,
@@ -279,8 +359,10 @@ export async function handlePaymentLinkPaid(
     };
   }
 
+  // 7-8. Preserve the original FAILED transaction; record the successful
+  // recovery payment as a separate CAPTURED transaction (deduped by id).
   const existingTx = await prisma.transaction.findUnique({
-    where: { razorpayPaymentId: payment.id },
+    where: { razorpayPaymentId: paymentId },
   });
   if (!existingTx) {
     await prisma.transaction.create({
@@ -290,11 +372,12 @@ export async function handlePaymentLinkPaid(
         amount,
         currency,
         status: "CAPTURED",
-        razorpayPaymentId: payment.id,
+        razorpayPaymentId: paymentId,
       },
     });
   }
 
+  // 9-12. Mark intervention SUCCESS (exactly once) and case RECOVERED.
   const now = new Date();
   await prisma.recoveryIntervention.update({
     where: { id: intervention.id },
@@ -312,37 +395,81 @@ export async function handlePaymentLinkPaid(
     data: { status: "RECOVERED", resolvedAt: now },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      recoveryCaseId: recoveryCase.id,
-      event: "RECOVERY_PAYMENT_CONFIRMED",
-      actor: "SYSTEM",
-      metadata: {
-        source: "razorpay",
-        eventType: "payment_link.paid",
-        razorpayEventId: eventId,
-        paymentLinkId,
-        paymentId: payment.id,
-        amount,
-        currency,
-      },
-    },
+  // 13-14. Success audits, created exactly once per (link, payment).
+  // Guard covers partial-failure retries where state was committed but the
+  // process died before/without audit rows.
+  const priorConfirmations = await prisma.auditLog.findMany({
+    where: { recoveryCaseId: recoveryCase.id, event: "RECOVERY_PAYMENT_CONFIRMED" },
+    select: { metadata: true },
   });
-  await prisma.auditLog.create({
-    data: {
-      recoveryCaseId: recoveryCase.id,
-      event: "RECOVERY_SUCCESS",
-      actor: "SYSTEM",
-      metadata: {
-        source: "razorpay",
-        paymentLinkId,
-        paymentId: payment.id,
-        action: "RETRY_PAYMENT",
-        recoveredAmount: amount,
-        amountAtRisk: recoveryCase.amountAtRisk,
-      },
-    },
+  const alreadyAudited = priorConfirmations.some((a) => {
+    const meta = a.metadata as Record<string, unknown> | null;
+    return (
+      meta?.paymentLinkId === paymentLinkId && meta?.paymentId === paymentId
+    );
   });
+  if (!alreadyAudited) {
+    await prisma.auditLog.create({
+      data: {
+        recoveryCaseId: recoveryCase.id,
+        event: "RECOVERY_PAYMENT_CONFIRMED",
+        actor: "SYSTEM",
+        metadata: {
+          source: "razorpay",
+          eventType,
+          razorpayEventId: eventId,
+          paymentLinkId,
+          paymentId,
+          amount,
+          currency,
+        },
+      },
+    });
+    await prisma.auditLog.create({
+      data: {
+        recoveryCaseId: recoveryCase.id,
+        event: "RECOVERY_SUCCESS",
+        actor: "SYSTEM",
+        metadata: {
+          source: "razorpay",
+          paymentLinkId,
+          paymentId,
+          action: "RETRY_PAYMENT",
+          recoveredAmount: amount,
+          amountAtRisk: recoveryCase.amountAtRisk,
+        },
+      },
+    });
+  }
 
-  return { ok: true, status: 200, caseId: recoveryCase.id };
+  return {
+    ok: true,
+    status: 200,
+    caseId: recoveryCase.id,
+    recoveredAmountPaise: amount,
+  };
+}
+
+export async function handlePaymentLinkPaid(
+  prisma: PrismaClient,
+  merchantId: string,
+  paymentLinkId: string,
+  payment: PaymentLinkPaidPayload["payment"],
+  eventId: string
+): Promise<PaymentLinkPaidResult> {
+  const result = await confirmRecoveryPayment(prisma, merchantId, {
+    paymentLinkId,
+    paymentId: payment.id,
+    amount: payment.amount,
+    currency: payment.currency,
+    paymentStatus: payment.status,
+    eventId,
+    eventType: "payment_link.paid",
+  });
+  return {
+    ok: result.ok,
+    status: result.status,
+    error: result.error,
+    caseId: result.caseId,
+  };
 }

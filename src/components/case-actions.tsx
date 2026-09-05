@@ -10,6 +10,12 @@ type CaseActionsProps = {
   blocked: { action: string; reason: string }[];
   requiresApproval: boolean;
   merchantApproved: boolean;
+  /**
+   * Outstanding Razorpay payment, if any. While present, RETRY_PAYMENT is
+   * hidden — at most one recovery payment may be outstanding per case.
+   * (The server orchestrator enforces this independently.)
+   */
+  paymentPending?: { id?: string | null; url?: string | null } | null;
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -60,16 +66,26 @@ export function CaseActions(props: CaseActionsProps) {
     }
   }
 
+  const visibleActions = props.paymentPending
+    ? props.allowedActions.filter((a) => a !== "RETRY_PAYMENT")
+    : props.allowedActions;
+
   return (
     <div className="space-y-4">
+      {props.paymentPending && (
+        <div className="border border-emerald-400/25 bg-black p-3 text-sm text-emerald-200">
+          A recovery payment is already awaiting customer payment — no further
+          payment action is available until it settles.
+        </div>
+      )}
       {props.requiresApproval && !props.merchantApproved && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="border border-amber-400/25 bg-black p-3 text-sm text-amber-200">
           High-value case: your approval is required before recovery can continue.
           <button
             type="button"
             disabled={busy !== null}
             onClick={() => call(`/api/recovery/cases/${props.caseId}/approve`, undefined, "approve")}
-            className="ml-2 rounded-md bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+            className="ml-2 bg-amber-400 px-2.5 py-1 text-xs font-semibold text-black transition-colors hover:bg-amber-300 disabled:opacity-50"
           >
             {busy === "approve" ? "Approving…" : "Approve Recovery"}
           </button>
@@ -83,12 +99,12 @@ export function CaseActions(props: CaseActionsProps) {
           onClick={() =>
             call(`/api/recovery/cases/${props.caseId}/evaluate`, undefined, "evaluate")
           }
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="border border-white/10 bg-black px-3 py-1.5 text-sm font-medium text-[#F7F9FC] transition-colors hover:border-white/25 disabled:opacity-50"
         >
           {busy === "evaluate" ? "Evaluating…" : "Evaluate Recovery"}
         </button>
 
-        {props.allowedActions.map((action) => (
+        {visibleActions.map((action) => (
           <button
             key={action}
             type="button"
@@ -102,8 +118,8 @@ export function CaseActions(props: CaseActionsProps) {
             }
             className={
               action === "STOP_RECOVERY"
-                ? "rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
-                : "rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                ? "border border-red-400/30 bg-black px-3 py-1.5 text-sm font-medium text-red-300 transition-colors hover:bg-red-400/10 disabled:opacity-50"
+                : "bg-[#5B7CFF] px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#4A6DF5] disabled:opacity-50"
             }
           >
             {busy === action ? "Executing…" : `Execute: ${ACTION_LABELS[action] ?? action}`}
@@ -114,27 +130,27 @@ export function CaseActions(props: CaseActionsProps) {
           type="button"
           disabled={busy !== null}
           onClick={() => call("/api/recovery/run-due", undefined, "run-due")}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="border border-white/10 bg-black px-3 py-1.5 text-sm font-medium text-[#F7F9FC] transition-colors hover:border-white/25 disabled:opacity-50"
         >
           {busy === "run-due" ? "Processing…" : "Run Due Scheduled Actions"}
         </button>
       </div>
 
-      {!props.eligible && props.allowedActions.length === 0 && (
-        <p className="text-sm text-rose-700">
+      {!props.eligible && visibleActions.length === 0 && !props.paymentPending && (
+        <p className="text-sm text-red-300">
           No recovery actions are currently allowed by policy.
         </p>
       )}
 
       {props.blocked.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+        <div className="border border-[#1A1A1A] bg-black p-3">
+          <p className="text-xs font-semibold tracking-wide text-[#6F7A89] uppercase">
             Blocked by policy
           </p>
           <ul className="mt-2 space-y-1">
             {props.blocked.map((b) => (
-              <li key={b.action} className="text-xs text-slate-600">
-                <span className="font-mono font-semibold">{b.action}</span> — {b.reason}
+              <li key={b.action} className="text-xs text-[#A3ADBD]">
+                <span className="font-mono font-semibold text-[#F7F9FC]">{b.action}</span> — {b.reason}
               </li>
             ))}
           </ul>
@@ -143,10 +159,10 @@ export function CaseActions(props: CaseActionsProps) {
 
       {feedback && (
         <div
-          className={`rounded-lg border p-3 text-sm ${
+          className={`border p-3 text-sm ${
             feedback.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800"
+              ? "border-emerald-400/25 bg-black text-emerald-200"
+              : "border-red-400/25 bg-black text-red-200"
           }`}
         >
           {feedback.text}

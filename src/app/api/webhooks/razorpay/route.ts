@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getRazorpayConfig } from "@/lib/razorpay/config";
 import { verifyWebhookSignature } from "@/lib/razorpay/webhook";
-import { handlePaymentFailed, handlePaymentLinkPaid } from "@/lib/razorpay/handler";
+import { dispatchRazorpayEvent } from "@/lib/razorpay/dispatch";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     );
   }
 
+  // Raw body is required for HMAC-SHA256 verification — never parse first.
   const rawBody = await request.text();
 
   const signatureHeader = request.headers.get("x-razorpay-signature");
@@ -54,117 +55,13 @@ export async function POST(request: Request) {
 
   const dedupeKey = razorpayEventId ?? eventId ?? `unknown-${Date.now()}`;
 
-  const existingEvent = await prisma.razorpayWebhookEvent.findUnique({
-    where: { eventId: dedupeKey },
+  // Lifecycle (reserve → process → mark) lives in the dispatcher so it is
+  // unit-testable and shared: PROCESSED is only recorded after the handler
+  // commits, FAILED events can be safely retried.
+  const result = await dispatchRazorpayEvent(prisma, config, {
+    dedupeKey,
+    eventType,
+    payload,
   });
-  if (existingEvent) {
-    return NextResponse.json({ ok: true, status: "already_processed" });
-  }
-
-  await prisma.razorpayWebhookEvent.create({
-    data: {
-      eventId: dedupeKey,
-      eventType: eventType ?? "unknown",
-      status: "PROCESSED",
-    },
-  });
-
-  if (eventType === "payment.failed") {
-    if (!paymentEntityRaw || typeof paymentEntityRaw !== "object") {
-      return NextResponse.json(
-        { error: "Missing payment entity in payload." },
-        { status: 400 }
-      );
-    }
-
-    const paymentId =
-      typeof paymentEntityRaw.id === "string" ? paymentEntityRaw.id : null;
-    if (!paymentId) {
-      return NextResponse.json(
-        { error: "Missing payment ID." },
-        { status: 400 }
-      );
-    }
-
-    const result = await handlePaymentFailed(
-      prisma,
-      config.merchantId,
-      paymentId,
-      paymentEntityRaw as Parameters<typeof handlePaymentFailed>[3],
-      dedupeKey
-    );
-
-    if (!result.ok) {
-      await prisma.razorpayWebhookEvent.update({
-        where: { eventId: dedupeKey },
-        data: { status: "FAILED", errorMessage: result.error },
-      });
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.status }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      caseId: result.caseId,
-      transactionId: result.transactionId,
-    });
-  }
-
-  if (eventType === "payment_link.paid") {
-    const paymentLinkWrap = (payload?.payment_link ?? null) as Record<string, unknown> | null;
-    const paymentLinkEntity = (paymentLinkWrap?.entity ?? null) as Record<string, unknown> | null;
-
-    if (!paymentLinkEntity || typeof paymentLinkEntity !== "object") {
-      return NextResponse.json(
-        { error: "Missing payment_link entity in payload." },
-        { status: 400 }
-      );
-    }
-    if (!paymentEntityRaw || typeof paymentEntityRaw !== "object") {
-      return NextResponse.json(
-        { error: "Missing payment entity in payload." },
-        { status: 400 }
-      );
-    }
-
-    const paymentLinkId =
-      typeof paymentLinkEntity.id === "string" ? paymentLinkEntity.id : null;
-    const paymentId =
-      typeof paymentEntityRaw.id === "string" ? paymentEntityRaw.id : null;
-
-    if (!paymentLinkId || !paymentId) {
-      return NextResponse.json(
-        { error: "Missing payment link or payment ID." },
-        { status: 400 }
-      );
-    }
-
-    const result = await handlePaymentLinkPaid(
-      prisma,
-      config.merchantId,
-      paymentLinkId,
-      paymentEntityRaw as Parameters<typeof handlePaymentLinkPaid>[3],
-      dedupeKey
-    );
-
-    if (!result.ok) {
-      await prisma.razorpayWebhookEvent.update({
-        where: { eventId: dedupeKey },
-        data: { status: "FAILED", errorMessage: result.error },
-      });
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.status }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      caseId: result.caseId,
-    });
-  }
-
-  return NextResponse.json({ ok: true, status: "event_ignored" });
+  return NextResponse.json(result.body, { status: result.httpStatus });
 }

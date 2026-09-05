@@ -28,9 +28,9 @@ export type AnalysisView = {
 };
 
 const RISK_STYLES: Record<string, string> = {
-  LOW: "bg-emerald-100 text-emerald-700",
-  MEDIUM: "bg-amber-100 text-amber-700",
-  HIGH: "bg-rose-100 text-rose-700",
+  LOW: "bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-400/20 ring-inset",
+  MEDIUM: "bg-amber-400/10 text-amber-300 ring-1 ring-amber-400/25 ring-inset",
+  HIGH: "bg-red-400/10 text-red-300 ring-1 ring-red-400/25 ring-inset",
 };
 
 function humanize(value: string) {
@@ -110,7 +110,7 @@ export function CopilotClient({ cases, existingAnalyses }: CopilotClientProps) {
         <div className="min-w-[280px] flex-1">
           <label
             htmlFor="case-select"
-            className="mb-1 block text-xs font-medium text-slate-500"
+            className="mb-1 block text-xs font-medium text-[#6F7A89]"
           >
             Select a recovery case
           </label>
@@ -118,7 +118,7 @@ export function CopilotClient({ cases, existingAnalyses }: CopilotClientProps) {
             id="case-select"
             value={selected}
             onChange={(e) => onSelectionChange(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none"
+            className="w-full border border-white/10 bg-black px-3 py-2 text-sm text-[#F7F9FC] focus:border-[#5B7CFF] focus:outline-none"
           >
             {cases.map((c) => (
               <option key={c.id} value={c.id}>
@@ -131,24 +131,24 @@ export function CopilotClient({ cases, existingAnalyses }: CopilotClientProps) {
           type="button"
           onClick={analyze}
           disabled={busy || !selected}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+          className="bg-[#5B7CFF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#4A6DF5] disabled:opacity-50"
         >
           {busy ? "Analyzing…" : "Analyze Case"}
         </button>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+        <div className="border border-red-400/25 bg-black p-3 text-sm text-red-200">
           {error}
         </div>
       )}
 
       {!analysis && !busy && (
-        <div className="flex min-h-[300px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
-          <p className="text-sm font-medium text-slate-700">
+        <div className="flex min-h-[300px] flex-col items-center justify-center border border-dashed border-[#242424] bg-black p-10 text-center">
+          <p className="text-sm font-medium text-[#F7F9FC]">
             No analysis yet for this case
           </p>
-          <p className="mt-1 max-w-md text-sm text-slate-400">
+          <p className="mt-1 max-w-md text-sm text-[#A3ADBD]">
             Click &quot;Analyze Case&quot; to have the AI agent produce a
             diagnosis, risk assessment, and recommended action. The
             recommendation is validated by the deterministic policy engine — it
@@ -158,16 +158,16 @@ export function CopilotClient({ cases, existingAnalyses }: CopilotClientProps) {
       )}
 
       {analysis && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold tracking-wide text-slate-900 uppercase">
+        <div className="border border-[#1A1A1A] bg-black p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[13px] font-semibold tracking-[0.08em] text-[#A3ADBD] uppercase">
               AI Recovery Analysis
             </h2>
             <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+              className={`border px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
                 analysis.fallbackUsed
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-violet-100 text-violet-700"
+                  ? "bg-amber-400/10 text-amber-300 ring-amber-400/25"
+                  : "bg-[#5B7CFF]/10 text-[#9DB1FF] ring-[#5B7CFF]/25"
               }`}
             >
               {analysis.fallbackUsed
@@ -178,22 +178,22 @@ export function CopilotClient({ cases, existingAnalyses }: CopilotClientProps) {
 
           <dl className="mt-5 grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <dt className="text-xs text-slate-400">Customer</dt>
-              <dd className="text-sm font-medium text-slate-900">
+              <dt className="text-xs text-[#6F7A89]">Customer</dt>
+              <dd className="text-sm font-medium text-[#F7F9FC]">
                 {analysis.customerName}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">Diagnosis</dt>
-              <dd className="font-mono text-sm font-medium text-slate-900">
+              <dt className="text-xs text-[#6F7A89]">Diagnosis</dt>
+              <dd className="font-mono text-sm font-medium text-[#F7F9FC]">
                 {analysis.diagnosis}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">Risk</dt>
+              <dt className="text-xs text-[#6F7A89]">Risk</dt>
               <dd>
                 <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  className={`inline-flex border px-2 py-0.5 text-xs font-semibold ${
                     RISK_STYLES[analysis.riskLevel] ?? ""
                   }`}
                 >
@@ -202,39 +202,39 @@ export function CopilotClient({ cases, existingAnalyses }: CopilotClientProps) {
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">Recommendation</dt>
-              <dd className="text-sm font-semibold text-emerald-700">
+              <dt className="text-xs text-[#6F7A89]">Recommendation</dt>
+              <dd className="text-sm font-semibold text-emerald-300">
                 {humanize(analysis.recommendedAction)}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">Confidence</dt>
-              <dd className="text-sm font-semibold text-slate-900">
+              <dt className="text-xs text-[#6F7A89]">Confidence</dt>
+              <dd className="text-sm font-semibold text-[#F7F9FC] tabular-nums">
                 {Math.round(analysis.confidence * 100)}%
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">Merchant Attention</dt>
-              <dd className="text-sm font-medium text-slate-900">
+              <dt className="text-xs text-[#6F7A89]">Merchant Attention</dt>
+              <dd className="text-sm font-medium text-[#F7F9FC]">
                 {analysis.requiresMerchantAttention ? "Required" : "Not Required"}
               </dd>
             </div>
           </dl>
 
-          <div className="mt-5 rounded-lg bg-slate-50 p-4">
-            <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+          <div className="mt-5 border border-[#1A1A1A] bg-black p-4">
+            <p className="text-xs font-semibold tracking-wide text-[#6F7A89] uppercase">
               Reasoning
             </p>
-            <p className="mt-1 text-sm text-slate-700">{analysis.reasoning}</p>
+            <p className="mt-1 text-sm leading-relaxed text-[#A3ADBD]">{analysis.reasoning}</p>
           </div>
 
           <div
-            className={`mt-4 rounded-lg p-4 text-sm ${
+            className={`mt-4 border p-4 text-sm leading-relaxed ${
               analysis.requiresMerchantApproval && !analysis.policyAllowedByPolicy
-                ? "bg-amber-50 text-amber-800"
+                ? "border-amber-400/30 bg-black text-amber-200"
                 : analysis.policyAllowedByPolicy
-                  ? "bg-emerald-50 text-emerald-800"
-                  : "bg-rose-50 text-rose-800"
+                  ? "border-emerald-400/30 bg-black text-emerald-200"
+                  : "border-red-400/30 bg-black text-red-200"
             }`}
           >
             {analysis.requiresMerchantApproval && !analysis.policyAllowedByPolicy ? (
@@ -258,28 +258,28 @@ export function CopilotClient({ cases, existingAnalyses }: CopilotClientProps) {
             can, and only when policy (and any required approval) allows.
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
-            <span className="rounded-md bg-slate-100 px-2 py-1">AI Recommendation</span>
-            <span aria-hidden>↓</span>
-            <span className="rounded-md bg-slate-100 px-2 py-1">Policy Validation</span>
-            <span aria-hidden>↓</span>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-[#6F7A89]">
+            <span className="border border-white/10 bg-black px-2 py-1 text-[#A3ADBD]">AI Recommendation</span>
+            <span aria-hidden>→</span>
+            <span className="border border-white/10 bg-black px-2 py-1 text-[#A3ADBD]">Policy Validation</span>
+            <span aria-hidden>→</span>
             <span
-              className={`rounded-md px-2 py-1 ${
+              className={`border px-2 py-1 ${
                 analysis.requiresMerchantApproval
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-slate-100"
+                  ? "border-amber-400/30 bg-black text-amber-300"
+                  : "border-white/10 bg-black text-[#A3ADBD]"
               }`}
             >
               Merchant Approval{analysis.requiresMerchantApproval ? "" : " (not required)"}
             </span>
-            <span aria-hidden>↓</span>
-            <span className="rounded-md bg-emerald-100 px-2 py-1 text-emerald-800">
+            <span aria-hidden>→</span>
+            <span className="border border-emerald-400/30 bg-black px-2 py-1 text-emerald-300">
               Execution
             </span>
           </div>
 
-          <p className="mt-3 text-xs text-slate-400">
-            Decision {analysis.decisionId.slice(-8)} · analyzed in{" "}
+          <p className="mt-3 font-mono text-[11px] text-[#6F7A89]">
+            Decision …{analysis.decisionId.slice(-8)} · analyzed in{" "}
             {analysis.latencyMs}ms · stored in AIDecision + AuditLog
           </p>
         </div>

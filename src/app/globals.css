@@ -5,6 +5,113 @@
   --font-mono: var(--font-geist-mono);
 }
 
+:root {
+  color-scheme: dark;
+  --line: #1a1a1a;
+  --line-soft: #171717;
+}
+
+html,
 body {
-  font-family: var(--font-sans), system-ui, sans-serif;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  background-color: #000;
+  color: #f7f9fc;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+
+/* HARD-EDGE SYSTEM: zero radius on every UI surface.
+   True circles opt back in via .circle (status dots, timeline nodes,
+   step indicators, donut-adjacent legend dots, live pulse). */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+.circle {
+  border-radius: 9999px !important;
+}
+
+/* Pure black canvas with an extremely faint structural grid (<=3%).
+   No blue glow, no radial gradients, no atmosphere. */
+.app-atmosphere {
+  position: relative;
+  isolation: isolate;
+  background-color: #000;
+}
+.app-atmosphere::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black 0%, black 40%, transparent 75%);
+}
+
+::selection {
+  background: rgba(91, 124, 255, 0.35);
+}
+
+/* Thin refined scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid #5b7cff;
+  outline-offset: 2px;
+}
+
+/* Restrained hover: brighten border slightly, nothing else */
+.card-lift {
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.card-lift:hover {
+  border-color: #2a2a2a;
+}
+
+/* Live pulse dot for awaiting-payment / active states */
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.45);
+  }
+  50% {
+    opacity: 0.75;
+    box-shadow: 0 0 0 5px rgba(52, 211, 153, 0);
+  }
+}
+.pulse-dot {
+  animation: soft-pulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot {
+    animation: none;
+  }
+  .card-lift,
+  .card-lift:hover {
+    transition: none;
+  }
 }

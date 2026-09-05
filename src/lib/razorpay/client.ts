@@ -153,3 +153,91 @@ export async function createPaymentLink(
 
   return { ok: true, status: 200, id, url };
 }
+
+export type RazorpayLinkPayment = {
+  id: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+};
+
+export type FetchedPaymentLink = {
+  id: string;
+  status?: string;
+  amount?: number;
+  amount_paid?: number;
+  currency?: string;
+  reference_id?: string;
+  short_url?: string;
+  notes?: Record<string, unknown>;
+  payments: RazorpayLinkPayment[];
+};
+
+export type FetchPaymentLinkResult = {
+  ok: boolean;
+  status: number;
+  link?: FetchedPaymentLink;
+  error?: string;
+};
+
+/**
+ * Server-side fetch of a Razorpay Payment Link (GET /v1/payment_links/:id).
+ * Used by payment-status reconciliation. Never exposes credentials —
+ * auth stays in the Authorization header.
+ */
+export async function fetchPaymentLink(
+  config: RazorpayConfig,
+  paymentLinkId: string
+): Promise<FetchPaymentLinkResult> {
+  const response = await razorpayApiRequest(
+    config,
+    `/payment_links/${encodeURIComponent(paymentLinkId)}`,
+    "GET"
+  );
+
+  if (!response.found || !response.data) {
+    return {
+      ok: false,
+      status: response.status,
+      error: response.error ?? "Failed to fetch payment link.",
+    };
+  }
+
+  const d = response.data;
+  const rawPayments = Array.isArray(d.payments) ? d.payments : [];
+  const payments: RazorpayLinkPayment[] = [];
+  for (const p of rawPayments) {
+    if (p && typeof p === "object" && typeof (p as { id?: unknown }).id === "string") {
+      const po = p as Record<string, unknown>;
+      payments.push({
+        id: po.id as string,
+        amount: typeof po.amount === "number" ? po.amount : undefined,
+        currency: typeof po.currency === "string" ? po.currency : undefined,
+        status: typeof po.status === "string" ? po.status : undefined,
+      });
+    }
+  }
+
+  if (typeof d.id !== "string") {
+    return { ok: false, status: 502, error: "Razorpay responded without a payment link id." };
+  }
+
+  return {
+    ok: true,
+    status: response.status,
+    link: {
+      id: d.id,
+      status: typeof d.status === "string" ? d.status : undefined,
+      amount: typeof d.amount === "number" ? d.amount : undefined,
+      amount_paid: typeof d.amount_paid === "number" ? d.amount_paid : undefined,
+      currency: typeof d.currency === "string" ? d.currency : undefined,
+      reference_id: typeof d.reference_id === "string" ? d.reference_id : undefined,
+      short_url: typeof d.short_url === "string" ? d.short_url : undefined,
+      notes:
+        d.notes && typeof d.notes === "object"
+          ? (d.notes as Record<string, unknown>)
+          : undefined,
+      payments,
+    },
+  };
+}

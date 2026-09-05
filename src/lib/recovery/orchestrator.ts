@@ -107,6 +107,8 @@ export type ExecuteOutcome =
       error: string;
       message?: string;
       policy?: PolicyEvaluation;
+      paymentLinkId?: string;
+      paymentLinkUrl?: string;
     };
 
 function auditMetadata(
@@ -207,6 +209,24 @@ export async function executeCaseAction(
     requestedAction === "RETRY_PAYMENT" &&
     recoveryCase.scenario === "FAILED_PAYMENT";
 
+  // Single outstanding payment rule: at most one active Razorpay recovery
+  // payment per case. Never trust the UI alone — enforce server-side.
+  // Reusing the pending link consumes no retry and creates no duplicates.
+  if (isRazorpayRetry) {
+    const pending = await store.findPendingRazorpayIntervention(recoveryCase.id);
+    if (pending?.paymentLinkUrl) {
+      return {
+        ok: false,
+        status: 409,
+        error: "PAYMENT_ALREADY_PENDING",
+        message: "A recovery payment is already awaiting customer payment.",
+        policy,
+        paymentLinkId: pending.providerReference ?? undefined,
+        paymentLinkUrl: pending.paymentLinkUrl ?? undefined,
+      };
+    }
+  }
+
   let created: { id: string } | null = null;
   if (isRazorpayRetry) {
     created = await store.createIntervention({
@@ -231,6 +251,14 @@ export async function executeCaseAction(
     interventionId: isRazorpayRetry ? created!.id : undefined,
   });
 
+  // Provider failure (no payment link was created) is NOT a customer retry:
+  // it must not consume retry/contact budget. Only a successfully initiated
+  // recovery payment counts as an attempt.
+  const razorpayLinkFailed = isRazorpayRetry && !outcome.paymentLink;
+  const providerErrorNotes = razorpayLinkFailed
+    ? `Provider error: ${outcome.notes ?? "Payment link could not be created."}`
+    : outcome.notes;
+
   if (isRazorpayRetry) {
     const interStatus =
       outcome.status === "PENDING"
@@ -243,7 +271,7 @@ export async function executeCaseAction(
       result: outcome.result,
       executedAt: outcome.status === "SCHEDULED" ? null : now,
       recoveredAmount: 0,
-      notes: outcome.notes,
+      notes: providerErrorNotes,
       provider: "razorpay",
       providerReference: outcome.paymentLink?.id ?? null,
       paymentLinkUrl: outcome.paymentLink?.url ?? null,
@@ -286,6 +314,7 @@ export async function executeCaseAction(
       attemptNumber,
       result: outcome.result,
       recoveredAmount: outcome.recoveredAmountPaise,
+      ...(outcome.errorCode ? { providerError: outcome.errorCode } : {}),
     }),
   });
 
@@ -307,7 +336,7 @@ export async function executeCaseAction(
 
   let retryCount = recoveryCase.retryCount;
   let contactCount = recoveryCase.contactCount;
-  if (isRetryAction) retryCount += 1;
+  if (isRetryAction && !razorpayLinkFailed) retryCount += 1;
   if (
     requestedAction === "SEND_REMINDER" ||
     requestedAction === "OFFER_ASSISTANCE"
@@ -418,7 +447,23 @@ export async function executeCaseAction(
     );
   }
 
-  if (outcome.status === "COMPLETED" && outcome.result !== "SUCCESS" && status !== "STOPPED") {
+  if (razorpayLinkFailed) {
+    // No customer attempt occurred: say so plainly. Never the generic
+    // "Attempt did not recover revenue" wording, and no RECOVERY_FAILED
+    // audit (that event implies a failed customer attempt).
+    if (outcome.errorCode === "RAZORPAY_TEST_LINK_LIMIT_REACHED") {
+      messages.push(
+        "Razorpay Test Mode Payment Link limit reached. This Razorpay test account allows up to 30 Payment Links. Contact Razorpay Support for additional test links or use RecoverAI Simulation Mode for the demo."
+      );
+      messages.push(
+        "Recovery payment could not be created because the Razorpay Test Mode link limit has been reached. No retry was consumed."
+      );
+    } else {
+      messages.push(
+        "Recovery payment could not be created because of a provider error. No retry was consumed."
+      );
+    }
+  } else if (outcome.status === "COMPLETED" && outcome.result !== "SUCCESS" && status !== "STOPPED") {
     await store.createAuditLog({
       recoveryCaseId: recoveryCase.id,
       event: "RECOVERY_FAILED",
@@ -460,7 +505,13 @@ export async function approveCase(
   store: RecoveryStore,
   caseId: string,
   opts?: { now?: Date }
-): Promise<{ ok: boolean; error?: string; approvedAt?: string }> {
+): Promise<{
+  ok: boolean;
+  error?: string;
+  approvedAt?: string;
+  windowReopened?: boolean;
+  newWindowExpiresAt?: string;
+}> {
   const recoveryCase = await store.getCase(caseId);
   if (!recoveryCase) return { ok: false, error: "Recovery case not found." };
   if (recoveryCase.merchantRejectedAt) {
@@ -475,17 +526,67 @@ export async function approveCase(
       error: `Case is ${recoveryCase.status}; approval is no longer possible.`,
     };
   }
-  if ((opts?.now ?? new Date()).getTime() > recoveryCase.windowExpiresAt.getTime()) {
+
+  const now = opts?.now ?? new Date();
+  const config = policyConfigFromCase(recoveryCase);
+  const expired = now.getTime() > recoveryCase.windowExpiresAt.getTime();
+
+  if (!expired) {
+    await store.updateCase(recoveryCase.id, {
+      merchantApproved: true,
+      merchantApprovedAt: now,
+    });
+    await store.createAuditLog({
+      recoveryCaseId: recoveryCase.id,
+      event: "APPROVAL_GRANTED",
+      actor: "MERCHANT",
+      metadata: auditMetadata(recoveryCase, {
+        approvedAt: now.toISOString(),
+      }),
+    });
+    return { ok: true, approvedAt: now.toISOString() };
+  }
+
+  // Window expired. Ordinary (non-approval-required) cases stay expired.
+  const needsApproval =
+    recoveryCase.amountAtRisk >= config.approvalThresholdPaise &&
+    !recoveryCase.merchantApproved;
+  if (!needsApproval) {
     return {
       ok: false,
       error: "Recovery window has expired; approval is no longer possible.",
     };
   }
 
-  const now = opts?.now ?? new Date();
+  // Approval-required case: allow approval only if retry/contact limits are
+  // still available. Probe policy as if approved inside a fresh window.
+  const newWindowExpiresAt = new Date(
+    now.getTime() + config.recoveryWindowHours * 3_600_000
+  );
+  const probe = evaluatePolicy(
+    {
+      scenario: recoveryCase.scenario,
+      amountAtRiskPaise: recoveryCase.amountAtRisk,
+      retryCount: recoveryCase.retryCount,
+      contactCount: recoveryCase.contactCount,
+      windowExpiresAt: newWindowExpiresAt,
+      merchantApproved: true,
+      now,
+    },
+    config
+  );
+  if (probe.stopRequired) {
+    return {
+      ok: false,
+      error: "Recovery limits have been reached; approval is no longer possible.",
+    };
+  }
+
+  const previousWindowExpiresAt = recoveryCase.windowExpiresAt;
   await store.updateCase(recoveryCase.id, {
     merchantApproved: true,
     merchantApprovedAt: now,
+    windowExpiresAt: newWindowExpiresAt,
   });
   await store.createAuditLog({
     recoveryCaseId: recoveryCase.id,
@@ -493,9 +594,25 @@ export async function approveCase(
     actor: "MERCHANT",
     metadata: auditMetadata(recoveryCase, {
       approvedAt: now.toISOString(),
+      newWindowExpiresAt: newWindowExpiresAt.toISOString(),
     }),
   });
-  return { ok: true, approvedAt: now.toISOString() };
+  await store.createAuditLog({
+    recoveryCaseId: recoveryCase.id,
+    event: "RECOVERY_WINDOW_REOPENED",
+    actor: "POLICY_ENGINE",
+    metadata: auditMetadata(recoveryCase, {
+      previousWindowExpiresAt: previousWindowExpiresAt.toISOString(),
+      newWindowExpiresAt: newWindowExpiresAt.toISOString(),
+      recoveryWindowHours: config.recoveryWindowHours,
+    }),
+  });
+  return {
+    ok: true,
+    approvedAt: now.toISOString(),
+    windowReopened: true,
+    newWindowExpiresAt: newWindowExpiresAt.toISOString(),
+  };
 }
 
 export async function rejectCase(
