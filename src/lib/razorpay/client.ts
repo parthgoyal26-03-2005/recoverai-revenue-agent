@@ -207,15 +207,26 @@ export async function fetchPaymentLink(
   const rawPayments = Array.isArray(d.payments) ? d.payments : [];
   const payments: RazorpayLinkPayment[] = [];
   for (const p of rawPayments) {
-    if (p && typeof p === "object" && typeof (p as { id?: unknown }).id === "string") {
-      const po = p as Record<string, unknown>;
-      payments.push({
-        id: po.id as string,
-        amount: typeof po.amount === "number" ? po.amount : undefined,
-        currency: typeof po.currency === "string" ? po.currency : undefined,
-        status: typeof po.status === "string" ? po.status : undefined,
-      });
-    }
+    if (!p || typeof p !== "object") continue;
+    const po = p as Record<string, unknown>;
+    // Razorpay's documented GET /v1/payment_links/:id shape carries the
+    // payment identifier as `payment_id` (NOT `id`). Use it as primary and
+    // keep `id` only as a backwards-compatible fallback — never discard a
+    // payment merely because `id` is absent. Currency may also be absent on
+    // the nested entry; callers fall back to the link-level currency.
+    const paymentId =
+      typeof po.payment_id === "string"
+        ? po.payment_id
+        : typeof po.id === "string"
+          ? po.id
+          : null;
+    if (!paymentId) continue;
+    payments.push({
+      id: paymentId,
+      amount: typeof po.amount === "number" ? po.amount : undefined,
+      currency: typeof po.currency === "string" ? po.currency : undefined,
+      status: typeof po.status === "string" ? po.status : undefined,
+    });
   }
 
   if (typeof d.id !== "string") {

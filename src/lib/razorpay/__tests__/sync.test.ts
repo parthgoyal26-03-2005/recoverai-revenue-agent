@@ -243,6 +243,74 @@ describe("syncPaymentLinkStatus", () => {
     expect(kaseAfter!.status).not.toBe("RECOVERED");
   });
 
+  it("real Razorpay paid shape (payment_id, no nested currency) recovers exactly once", async () => {
+    const { kase, linkId } = await setupPendingCase();
+    const originalTxn = await prisma.transaction.findFirst({
+      where: { recoveryCaseId: kase.id },
+    });
+    expect(originalTxn!.status).toBe("FAILED");
+
+    mockLinkFetch({
+      id: linkId,
+      amount: 100_000,
+      amount_paid: 100_000,
+      currency: "INR",
+      status: "paid",
+      reference_id: "RECOVERAI-x",
+      short_url: "https://rzp.io/l/x",
+      notes: {},
+      payments: [
+        {
+          amount: 100_000,
+          payment_id: "pay_realshape",
+          status: "captured",
+        },
+      ],
+    });
+
+    const result = await syncPaymentLinkStatus(prisma, config, kase.id);
+    expect(result.outcome).toBe("recovered");
+
+    const kaseAfter = await prisma.recoveryCase.findUnique({ where: { id: kase.id } });
+    expect(kaseAfter!.status).toBe("RECOVERED");
+    expect(kaseAfter!.resolvedAt).not.toBeNull();
+
+    const ivs = await prisma.recoveryIntervention.findMany({ where: { recoveryCaseId: kase.id } });
+    expect(ivs).toHaveLength(1);
+    expect(ivs[0].status).toBe("COMPLETED");
+    expect(ivs[0].result).toBe("SUCCESS");
+    expect(ivs[0].recoveredAmount).toBe(100_000);
+
+    const stillFailed = await prisma.transaction.findUnique({ where: { id: originalTxn!.id } });
+    expect(stillFailed!.status).toBe("FAILED");
+
+    const captured = await prisma.transaction.findMany({
+      where: { razorpayPaymentId: "pay_realshape" },
+    });
+    expect(captured).toHaveLength(1);
+    expect(captured[0].status).toBe("CAPTURED");
+
+    const success = await prisma.auditLog.findMany({
+      where: { recoveryCaseId: kase.id, event: "RECOVERY_SUCCESS" },
+    });
+    expect(success).toHaveLength(1);
+
+    // Idempotent repeat: no doubles, no new link, no retry consumed.
+    const retryCountAfter = (await prisma.recoveryCase.findUnique({ where: { id: kase.id } }))!.retryCount;
+    const again = await syncPaymentLinkStatus(prisma, config, kase.id);
+    expect(again.outcome).toBe("already_recovered");
+    const capturedAgain = await prisma.transaction.findMany({
+      where: { razorpayPaymentId: "pay_realshape" },
+    });
+    expect(capturedAgain).toHaveLength(1);
+    const successAgain = await prisma.auditLog.findMany({
+      where: { recoveryCaseId: kase.id, event: "RECOVERY_SUCCESS" },
+    });
+    expect(successAgain).toHaveLength(1);
+    const kaseAgain = await prisma.recoveryCase.findUnique({ where: { id: kase.id } });
+    expect(kaseAgain!.retryCount).toBe(retryCountAfter);
+  });
+
   it("no pending intervention returns no_pending_payment", async () => {
     const { kase } = await setupPendingCase();
     await prisma.recoveryIntervention.deleteMany({ where: { recoveryCaseId: kase.id } });
